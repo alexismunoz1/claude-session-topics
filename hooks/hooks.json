@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "S=$(ls \"$HOME/.claude/plugins/cache/claude-session-topics/claude-session-topics\"/*/scripts/auto-setup.sh 2>/dev/null | tail -1); [ -n \"$S\" ] && bash \"$S\" || true"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/auto-setup.sh\" || true"
           }
         ]
       }
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "S=$(ls \"$HOME/.claude/plugins/cache/claude-session-topics/claude-session-topics\"/*/scripts/auto-allow.sh 2>/dev/null | tail -1); [ -n \"$S\" ] && bash \"$S\" || true"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/auto-allow.sh\" || true"
           }
         ]
       }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "S=$(ls \"$HOME/.claude/plugins/cache/claude-session-topics/claude-session-topics\"/*/scripts/auto-topic-hook.sh 2>/dev/null | tail -1); [ -n \"$S\" ] && bash \"$S\" || true"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/auto-topic-hook.sh\" || true"
           }
         ]
       }

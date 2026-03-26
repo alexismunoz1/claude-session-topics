@@ -28,7 +28,7 @@ if [ -z "$SESSION_ID" ]; then
     echo "Error: No active session found. The statusline must run at least once before setting a topic."
     exit 1
 fi
-TOPIC=$(printf '%s' "$ARGUMENTS" | tr -cd 'a-zA-Z0-9 .,:!?'"'"'-' | cut -c1-100)
+TOPIC=$(printf '%s' "$ARGUMENTS" | sed "s/[^a-zA-Z0-9àáâãäåèéêëìíîïòóôõöùúûüýÿñçÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝÑÇ .,:!?'-]//g" | cut -c1-100)
 if [ -z "$TOPIC" ]; then
     echo "Error: Topic text is empty after sanitization."
     exit 1
