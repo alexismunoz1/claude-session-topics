@@ -5,6 +5,11 @@ input=$(cat)
 
 # ── Parse JSON
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
+SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
+if [ -z "$SESSION_ID" ]; then
+    # No valid session ID — skip session-dependent logic, just run original statusline
+    exit 0
+fi
 
 # ── Write active session file
 if [ -n "$SESSION_ID" ]; then
@@ -63,7 +68,7 @@ C_RESET='\033[0m'
 CLEANUP_LOCK="/tmp/.claude-topic-cleanup-lock"
 if mkdir "$CLEANUP_LOCK" 2>/dev/null; then
     trap "rmdir '$CLEANUP_LOCK' 2>/dev/null || true" EXIT
-    find "$HOME/.claude/session-topics" -type f -mtime +7 -delete 2>/dev/null || true
+    find "$HOME/.claude/session-topics" -type f -mtime +7 -not -name '.*' -delete 2>/dev/null || true
     rmdir "$CLEANUP_LOCK" 2>/dev/null
 fi
 

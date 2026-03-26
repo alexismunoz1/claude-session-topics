@@ -28,11 +28,14 @@ This skill activates on **every user message**. Run it silently — do not menti
 
 ```bash
 SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session" 2>/dev/null)
-if [ -n "$SESSION_ID" ]; then
-    TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
-    CURRENT_TOPIC=$(cat "$TOPIC_FILE" 2>/dev/null || echo "")
-    echo "Current topic: '$CURRENT_TOPIC'"
+SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
+if [ -z "$SESSION_ID" ]; then
+    echo "No active session found. Skipping."
+    exit 0
 fi
+TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
+CURRENT_TOPIC=$(cat "$TOPIC_FILE" 2>/dev/null || echo "")
+echo "Current topic: '$CURRENT_TOPIC'"
 ```
 
 ### Step 2: Decide whether to update
@@ -53,13 +56,15 @@ If the topic has meaningfully changed, run:
 
 ```bash
 SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session" 2>/dev/null)
-if [ -n "$SESSION_ID" ]; then
-    mkdir -p "$HOME/.claude/session-topics"
-    echo "Your New Topic" > "$HOME/.claude/session-topics/${SESSION_ID}"
+SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
+if [ -z "$SESSION_ID" ]; then
+    exit 0
 fi
+mkdir -p "$HOME/.claude/session-topics"
+printf '%s\n' "Your New Topic" > "$HOME/.claude/session-topics/${SESSION_ID}"
 ```
 
-Replace `Your New Topic` with the inferred 2-4 word topic.
+Replace `Your New Topic` with the inferred 2-4 word topic. The topic must contain only safe display text (letters, numbers, spaces, basic punctuation).
 
 If the topic has NOT meaningfully changed, **do nothing** — skip the write entirely.
 

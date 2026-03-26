@@ -50,7 +50,7 @@ const WRAPPER_CMD = `bash "$HOME/.claude/session-topics/wrapper-statusline.sh"`;
 
 // ─── Permission rule ─────────────────────────────────────────────────────────
 
-const PERMISSION_RULE = 'Bash(*session-topics*)';
+const PERMISSION_RULE = 'Bash(*/.claude/session-topics/*)';
 
 // ─── Wrapper script content ──────────────────────────────────────────────────
 
@@ -59,7 +59,27 @@ input=$(cat)
 TOPIC_OUTPUT=$(echo "$input" | bash "$HOME/.claude/session-topics/statusline.sh" 2>/dev/null || echo "")
 ORIG_CMD=$(cat "$HOME/.claude/session-topics/.original-statusline-cmd" 2>/dev/null || echo "")
 ORIG_OUTPUT=""
-[ -n "$ORIG_CMD" ] && ORIG_OUTPUT=$(echo "$input" | eval "$ORIG_CMD" 2>/dev/null || echo "")
+
+# Validate the original command before executing it
+validate_cmd() {
+    local cmd="\$1"
+    # Reject dangerous patterns: command substitution, backticks, chaining,
+    # process substitution, and /dev/tcp|udp redirection
+    if echo "\$cmd" | grep -qF '\$(' ; then return 1; fi
+    if echo "\$cmd" | grep -qF '\`' ; then return 1; fi
+    if echo "\$cmd" | grep -q '[;&|]' ; then return 1; fi
+    if echo "\$cmd" | grep -qE '>\\(' ; then return 1; fi
+    if echo "\$cmd" | grep -qE '<\\(' ; then return 1; fi
+    if echo "\$cmd" | grep -qE '/dev/(tcp|udp)' ; then return 1; fi
+    # Must start with an allowed command pattern (bash <path> or absolute path)
+    if ! echo "\$cmd" | grep -qE '^(bash |/[a-zA-Z0-9._/-]+)' ; then return 1; fi
+    return 0
+}
+
+if [ -n "$ORIG_CMD" ] && validate_cmd "$ORIG_CMD"; then
+    ORIG_OUTPUT=$(echo "$input" | bash -c "$ORIG_CMD" 2>/dev/null || echo "")
+fi
+
 if [ -n "$TOPIC_OUTPUT" ] && [ -n "$ORIG_OUTPUT" ]; then
     echo -e "\${TOPIC_OUTPUT} | \${ORIG_OUTPUT}"
 elif [ -n "$TOPIC_OUTPUT" ]; then
@@ -83,7 +103,10 @@ function readSettings() {
 function writeSettings(obj) {
     const dir = path.dirname(SETTINGS_FILE);
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(obj, null, 2) + '\n', 'utf8');
+    // Atomic write: write to temp file then rename to avoid TOCTOU race condition
+    const tmpFile = SETTINGS_FILE + '.tmp.' + process.pid;
+    fs.writeFileSync(tmpFile, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(tmpFile, SETTINGS_FILE);
 }
 
 function copyDirRecursive(src, dest) {
@@ -110,6 +133,15 @@ function hasJq() {
 
 // ─── CLI argument parsing ────────────────────────────────────────────────────
 
+const VALID_NAMED_COLORS = ['green', 'blue', 'cyan', 'magenta', 'yellow', 'red', 'white', 'orange', 'grey'];
+const VALID_ANSI_CODE_RE = /^[0-9;]{1,15}$/;
+
+function validateColor(value) {
+    if (VALID_NAMED_COLORS.includes(value.toLowerCase())) return true;
+    if (VALID_ANSI_CODE_RE.test(value)) return true;
+    return false;
+}
+
 function parseArgs(argv) {
     const args = argv.slice(2);
     const result = { action: 'install', color: null };
@@ -126,7 +158,12 @@ function parseArgs(argv) {
         }
         if (arg === '--color') {
             if (i + 1 < args.length) {
-                result.color = args[i + 1];
+                const colorValue = args[i + 1];
+                if (!validateColor(colorValue)) {
+                    err(`Invalid color: "${colorValue}". Use a named color (${VALID_NAMED_COLORS.join(', ')}) or a numeric ANSI code (max 15 chars).`);
+                    process.exit(1);
+                }
+                result.color = colorValue;
                 i++;
             } else {
                 err('--color requires a value (e.g., --color cyan)');
@@ -222,12 +259,12 @@ function install(color) {
             // Another command exists — create wrapper
             const origCmd = settings.statusLine.command;
 
-            // Backup original command
-            fs.writeFileSync(ORIG_CMD_FILE, origCmd, 'utf8');
+            // Backup original command (read-only: 0400 to prevent tampering)
+            fs.writeFileSync(ORIG_CMD_FILE, origCmd, { encoding: 'utf8', mode: 0o400 });
             info(`Backed up original statusLine command to .original-statusline-cmd`);
 
             // Write wrapper
-            fs.writeFileSync(DEST_WRAPPER, WRAPPER_SCRIPT, 'utf8');
+            fs.writeFileSync(DEST_WRAPPER, WRAPPER_SCRIPT, { encoding: 'utf8', mode: 0o600 });
             fs.chmodSync(DEST_WRAPPER, 0o755);
             info('Created wrapper-statusline.sh');
 
@@ -282,7 +319,7 @@ function install(color) {
     // ── Step 7: Configure color ──────────────────────────────────────────
 
     if (color) {
-        fs.writeFileSync(COLOR_CONFIG, color, 'utf8');
+        fs.writeFileSync(COLOR_CONFIG, color, { encoding: 'utf8', mode: 0o600 });
         ok(`Topic color set to: ${BOLD}${color}${RESET}`);
     }
 
@@ -374,8 +411,9 @@ function uninstall() {
         Array.isArray(settings.permissions.allow)
     ) {
         const before = settings.permissions.allow.length;
+        const OLD_PERMISSION_RULE = 'Bash(*session-topics*)';
         settings.permissions.allow = settings.permissions.allow.filter(
-            (rule) => rule !== PERMISSION_RULE
+            (rule) => rule !== PERMISSION_RULE && rule !== OLD_PERMISSION_RULE
         );
         if (settings.permissions.allow.length < before) {
             writeSettings(settings);
