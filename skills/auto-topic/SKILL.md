@@ -1,0 +1,72 @@
+---
+name: auto-topic
+description: Use on EVERY user message to automatically set or update a short session topic (2-4 words) in the statusline. Activates continuously throughout the conversation to keep the topic current as the discussion evolves.
+version: 1.2.0
+allowed-tools: [Bash]
+---
+
+# Auto Topic
+
+Automatically set and update a short, descriptive topic for the current Claude Code session as the conversation evolves.
+
+## When to Activate
+
+This skill activates on **every user message**. Run it silently — do not mention to the user that you are setting or updating the topic.
+
+## Rules
+
+1. After reading each user message, infer a topic of **2-4 words** (max 20 characters) that reflects what the user is currently working on
+2. The topic should summarize the current focus of the conversation
+3. Use the project's domain language (e.g., Spanish is fine if the user writes in Spanish)
+4. Examples: "Auth Refactor", "FAQ Bug", "Search Filters", "DB Migration", "API Tests"
+5. Run the topic check and update **silently** — do not tell the user you set or changed it
+6. If `/set-topic` is used later by the user, that takes priority
+
+## How to Check and Update the Topic
+
+### Step 1: Read the current topic
+
+```bash
+SESSION_ID=$(cat /tmp/claude-pid-$PPID 2>/dev/null)
+if [ -n "$SESSION_ID" ]; then
+    TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
+    CURRENT_TOPIC=$(cat "$TOPIC_FILE" 2>/dev/null || echo "")
+    echo "Current topic: '$CURRENT_TOPIC'"
+fi
+```
+
+### Step 2: Decide whether to update
+
+Compare the inferred new topic with the current topic. **Only write a new topic if the conversation has clearly shifted to a different subject.** Do NOT update for:
+- Minor variations of the same topic (e.g., "Auth Refactor" → "Refactor Auth")
+- Subtasks within the same broader topic (e.g., "Auth Refactor" → "Auth Tests" if still working on auth)
+- Rewording without a real subject change
+
+DO update when:
+- The user has moved to a genuinely different area of work (e.g., "Auth Refactor" → "DB Migration")
+- The original topic no longer describes what the conversation is about
+- There is no current topic yet (first message)
+
+### Step 3: Write the new topic (only if changed)
+
+If the topic has meaningfully changed, run:
+
+```bash
+SESSION_ID=$(cat /tmp/claude-pid-$PPID 2>/dev/null)
+if [ -n "$SESSION_ID" ]; then
+    mkdir -p "$HOME/.claude/session-topics"
+    echo "Your New Topic" > "$HOME/.claude/session-topics/${SESSION_ID}"
+fi
+```
+
+Replace `Your New Topic` with the inferred 2-4 word topic.
+
+If the topic has NOT meaningfully changed, **do nothing** — skip the write entirely.
+
+## Important
+
+- Run this on **every** user message, but only write when the topic has genuinely changed
+- Do NOT mention the topic to the user — ever
+- Keep topics short and descriptive (2-4 words, max 20 characters)
+- If the statusline hasn't run yet (no PID file), skip silently
+- A high bar for "meaningfully changed" prevents unnecessary churn — when in doubt, keep the current topic
