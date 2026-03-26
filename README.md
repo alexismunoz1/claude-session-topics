@@ -93,18 +93,6 @@ The statusline script receives the session ID via stdin JSON, reads the correspo
 npx @alexismunoz1/claude-session-topics --uninstall
 ```
 
-## Migrating from v1
-
-1. Uninstall the v1 plugin:
-   ```bash
-   claude plugins uninstall claude-session-topics
-   ```
-2. Run the v2 installer:
-   ```bash
-   npx @alexismunoz1/claude-session-topics
-   ```
-3. Existing topic data in `~/.claude/session-topics/` is preserved automatically.
-
 ## License
 
 MIT

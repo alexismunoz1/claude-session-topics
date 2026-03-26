@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// claude-session-topics v2 — npx installer
+// claude-session-topics — npx installer
 // Installs statusline script, skills, and configures settings.json
 // Zero runtime dependency on npm after installation.
 
@@ -51,10 +51,6 @@ const WRAPPER_CMD = `bash "$HOME/.claude/session-topics/wrapper-statusline.sh"`;
 // ─── Permission rule ─────────────────────────────────────────────────────────
 
 const PERMISSION_RULE = 'Bash(*session-topics*)';
-
-// ─── V1 plugin cache path ────────────────────────────────────────────────────
-
-const V1_PLUGIN_CACHE = path.join(HOME, '.claude', 'plugins', 'cache', 'claude-session-topics');
 
 // ─── Wrapper script content ──────────────────────────────────────────────────
 
@@ -174,7 +170,7 @@ ${BOLD}After install:${RESET}
 // ─── Install ─────────────────────────────────────────────────────────────────
 
 function install(color) {
-    heading('Installing claude-session-topics v2');
+    heading('Installing claude-session-topics');
 
     // ── Step 1: Check deps ───────────────────────────────────────────────
 
@@ -290,18 +286,7 @@ function install(color) {
         ok(`Topic color set to: ${BOLD}${color}${RESET}`);
     }
 
-    // ── Step 8: Detect v1 ────────────────────────────────────────────────
-
-    if (fs.existsSync(V1_PLUGIN_CACHE)) {
-        console.log('');
-        warn(`${BOLD}v1 plugin detected${RESET} at ~/.claude/plugins/cache/claude-session-topics/`);
-        console.log(`    The v1 plugin system is deprecated. You can safely remove it:`);
-        console.log(`    ${DIM}rm -rf ~/.claude/plugins/cache/claude-session-topics/${RESET}`);
-        console.log(`    Also remove any ${DIM}enabledPlugins${RESET} or ${DIM}extraKnownMarketplaces${RESET}`);
-        console.log(`    entries for "session-topics" from ~/.claude/settings.json`);
-    }
-
-    // ── Step 9: Summary ──────────────────────────────────────────────────
+    // ── Step 8: Summary ──────────────────────────────────────────────────
 
     console.log('');
     heading('Installation complete');
@@ -339,7 +324,7 @@ function determineStatusLineCase(settings) {
 // ─── Uninstall ───────────────────────────────────────────────────────────────
 
 function uninstall() {
-    heading('Uninstalling claude-session-topics v2');
+    heading('Uninstalling claude-session-topics');
 
     const settings = readSettings();
 
@@ -412,41 +397,6 @@ function uninstall() {
     // ── Step 5: Preserve data ────────────────────────────────────────────
 
     info('Preserved topic data in ~/.claude/session-topics/ (topic files + color config)');
-
-    // ── Step 6: Clean v1 plugin entries from settings ────────────────────
-
-    let v1Cleaned = false;
-
-    if (Array.isArray(settings.enabledPlugins)) {
-        const before = settings.enabledPlugins.length;
-        settings.enabledPlugins = settings.enabledPlugins.filter(
-            (p) => !String(p).includes('session-topics')
-        );
-        if (settings.enabledPlugins.length < before) {
-            v1Cleaned = true;
-        }
-        if (settings.enabledPlugins.length === 0) {
-            delete settings.enabledPlugins;
-        }
-    }
-
-    if (Array.isArray(settings.extraKnownMarketplaces)) {
-        const before = settings.extraKnownMarketplaces.length;
-        settings.extraKnownMarketplaces = settings.extraKnownMarketplaces.filter(
-            (m) => !String(m).includes('session-topics')
-        );
-        if (settings.extraKnownMarketplaces.length < before) {
-            v1Cleaned = true;
-        }
-        if (settings.extraKnownMarketplaces.length === 0) {
-            delete settings.extraKnownMarketplaces;
-        }
-    }
-
-    if (v1Cleaned) {
-        writeSettings(settings);
-        ok('Cleaned v1 plugin entries from settings.json');
-    }
 
     // ── Summary ──────────────────────────────────────────────────────────
 
