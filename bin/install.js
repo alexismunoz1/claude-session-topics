@@ -33,6 +33,7 @@ const HOME = os.homedir();
 const TOPICS_DIR = path.join(HOME, '.claude', 'session-topics');
 const DEST_STATUSLINE = path.join(TOPICS_DIR, 'statusline.sh');
 const DEST_WRAPPER = path.join(TOPICS_DIR, 'wrapper-statusline.sh');
+const DEST_HOOK_SCRIPT = path.join(TOPICS_DIR, 'auto-topic-hook.sh');
 const ORIG_CMD_FILE = path.join(TOPICS_DIR, '.original-statusline-cmd');
 const COLOR_CONFIG = path.join(TOPICS_DIR, '.color-config');
 const SKILLS_DIR = path.join(HOME, '.claude', 'skills');
@@ -41,12 +42,14 @@ const SETTINGS_FILE = path.join(HOME, '.claude', 'settings.json');
 // ─── Source paths (relative to this script) ──────────────────────────────────
 
 const SRC_STATUSLINE = path.join(__dirname, '..', 'scripts', 'statusline.sh');
+const SRC_HOOK_SCRIPT = path.join(__dirname, '..', 'scripts', 'auto-topic-hook.sh');
 const SRC_SKILLS = path.join(__dirname, '..', 'skills');
 
 // ─── The statusline command that settings.json will reference ────────────────
 
 const STATUSLINE_CMD = `bash "$HOME/.claude/session-topics/statusline.sh"`;
 const WRAPPER_CMD = `bash "$HOME/.claude/session-topics/wrapper-statusline.sh"`;
+const STOP_HOOK_CMD = `bash "$HOME/.claude/session-topics/auto-topic-hook.sh" || true`;
 
 // ─── Permission rule ─────────────────────────────────────────────────────────
 
@@ -196,6 +199,7 @@ ${BOLD}What it does:${RESET}
   - Copies statusline.sh to ~/.claude/session-topics/
   - Configures statusLine in ~/.claude/settings.json
   - Adds Bash permission for session-topics commands
+  - Registers Stop hook for automatic topic detection
   - Installs auto-topic and set-topic skills to ~/.claude/skills/
 
 ${BOLD}After install:${RESET}
@@ -234,7 +238,17 @@ function install(color) {
     fs.chmodSync(DEST_STATUSLINE, 0o755);
     ok('Copied statusline.sh');
 
-    // ── Step 4: Configure statusline in settings.json ────────────────────
+    // ── Step 4: Copy auto-topic hook script ─────────────────────────────
+
+    if (!fs.existsSync(SRC_HOOK_SCRIPT)) {
+        err(`Source hook script not found: ${SRC_HOOK_SCRIPT}`);
+        process.exit(1);
+    }
+    fs.copyFileSync(SRC_HOOK_SCRIPT, DEST_HOOK_SCRIPT);
+    fs.chmodSync(DEST_HOOK_SCRIPT, 0o755);
+    ok('Copied auto-topic-hook.sh');
+
+    // ── Step 5: Configure statusline in settings.json ────────────────────
 
     const settings = readSettings();
     const statusLineCase = determineStatusLineCase(settings);
@@ -286,7 +300,7 @@ function install(color) {
         }
     }
 
-    // ── Step 5: Add permission ───────────────────────────────────────────
+    // ── Step 6: Add permission ───────────────────────────────────────────
 
     if (!settings.permissions || typeof settings.permissions !== 'object' || Array.isArray(settings.permissions)) {
         settings.permissions = {};
@@ -302,7 +316,46 @@ function install(color) {
         ok('Permission already present');
     }
 
-    // ── Step 6: Copy skills ──────────────────────────────────────────────
+    // ── Step 7: Register Stop hook ──────────────────────────────────────
+
+    if (!settings.hooks || typeof settings.hooks !== 'object' || Array.isArray(settings.hooks)) {
+        settings.hooks = {};
+    }
+    if (!Array.isArray(settings.hooks.Stop)) {
+        settings.hooks.Stop = [];
+    }
+
+    // Find existing session-topics hook entry
+    let hookFound = false;
+    for (const entry of settings.hooks.Stop) {
+        if (entry && Array.isArray(entry.hooks)) {
+            for (const h of entry.hooks) {
+                if (h && typeof h.command === 'string' && h.command.includes('session-topics')) {
+                    h.command = STOP_HOOK_CMD;
+                    hookFound = true;
+                }
+            }
+        }
+    }
+
+    if (!hookFound) {
+        settings.hooks.Stop.push({
+            hooks: [
+                {
+                    type: 'command',
+                    command: STOP_HOOK_CMD,
+                },
+            ],
+        });
+    }
+    writeSettings(settings);
+    if (hookFound) {
+        ok('Updated Stop hook for auto-topic detection');
+    } else {
+        ok('Registered Stop hook for auto-topic detection');
+    }
+
+    // ── Step 8: Copy skills ──────────────────────────────────────────────
 
     const skillsToCopy = ['auto-topic', 'set-topic'];
     for (const skill of skillsToCopy) {
@@ -316,20 +369,21 @@ function install(color) {
         }
     }
 
-    // ── Step 7: Configure color ──────────────────────────────────────────
+    // ── Step 9: Configure color ──────────────────────────────────────────
 
     if (color) {
         fs.writeFileSync(COLOR_CONFIG, color, { encoding: 'utf8', mode: 0o600 });
         ok(`Topic color set to: ${BOLD}${color}${RESET}`);
     }
 
-    // ── Step 8: Summary ──────────────────────────────────────────────────
+    // ── Step 10: Summary ─────────────────────────────────────────────────
 
     console.log('');
     heading('Installation complete');
     console.log(`  ${DIM}Statusline:${RESET}  ~/.claude/session-topics/statusline.sh`);
     console.log(`  ${DIM}Skills:${RESET}      ~/.claude/skills/auto-topic/`);
     console.log(`                ~/.claude/skills/set-topic/`);
+    console.log(`  ${DIM}Hook:${RESET}        Stop → auto-topic-hook.sh`);
     console.log(`  ${DIM}Settings:${RESET}    ~/.claude/settings.json`);
     if (color) {
         console.log(`  ${DIM}Color:${RESET}       ${color}`);
@@ -395,7 +449,7 @@ function uninstall() {
 
     // ── Step 2: Delete scripts ───────────────────────────────────────────
 
-    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, ORIG_CMD_FILE];
+    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, ORIG_CMD_FILE];
     for (const file of filesToDelete) {
         if (fs.existsSync(file)) {
             fs.unlinkSync(file);
@@ -421,7 +475,35 @@ function uninstall() {
         }
     }
 
-    // ── Step 4: Delete skills ────────────────────────────────────────────
+    // ── Step 4: Remove Stop hook ───────────────────────────────────────
+
+    if (
+        settings.hooks &&
+        typeof settings.hooks === 'object' &&
+        Array.isArray(settings.hooks.Stop)
+    ) {
+        const beforeLen = settings.hooks.Stop.length;
+        settings.hooks.Stop = settings.hooks.Stop.filter((entry) => {
+            if (entry && Array.isArray(entry.hooks)) {
+                return !entry.hooks.some(
+                    (h) => h && typeof h.command === 'string' && h.command.includes('session-topics')
+                );
+            }
+            return true;
+        });
+        if (settings.hooks.Stop.length < beforeLen) {
+            if (settings.hooks.Stop.length === 0) {
+                delete settings.hooks.Stop;
+            }
+            if (Object.keys(settings.hooks).length === 0) {
+                delete settings.hooks;
+            }
+            writeSettings(settings);
+            ok('Removed Stop hook');
+        }
+    }
+
+    // ── Step 5: Delete skills ────────────────────────────────────────────
 
     const skillsToDelete = ['auto-topic', 'set-topic'];
     for (const skill of skillsToDelete) {
@@ -432,7 +514,7 @@ function uninstall() {
         }
     }
 
-    // ── Step 5: Preserve data ────────────────────────────────────────────
+    // ── Step 6: Preserve data ────────────────────────────────────────────
 
     info('Preserved topic data in ~/.claude/session-topics/ (topic files + color config)');
 
