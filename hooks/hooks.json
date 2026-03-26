@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "COLOR='${user_config.topic_color}'; [ -n \"$COLOR\" ] && mkdir -p \"$HOME/.claude/session-topics\" && echo \"$COLOR\" > \"$HOME/.claude/session-topics/.color-config\" || true"
+          },
+          {
+            "type": "command",
+            "command": "S=$(ls \"$HOME/.claude/plugins/cache/claude-session-topics/claude-session-topics\"/*/scripts/auto-setup.sh 2>/dev/null | tail -1); [ -n \"$S\" ] && bash \"$S\" || true"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "S=$(ls \"$HOME/.claude/plugins/cache/claude-session-topics/claude-session-topics\"/*/scripts/auto-allow.sh 2>/dev/null | tail -1); [ -n \"$S\" ] && bash \"$S\" || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "S=$(ls \"$HOME/.claude/plugins/cache/claude-session-topics/claude-session-topics\"/*/scripts/auto-topic-hook.sh 2>/dev/null | tail -1); [ -n \"$S\" ] && bash \"$S\" || true"
+          }
+        ]
+      }
+    ]
+  }
+}

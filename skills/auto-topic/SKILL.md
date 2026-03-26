@@ -1,17 +1,22 @@
 ---
 name: auto-topic
-description: Use on EVERY user message to automatically set or update a short session topic (2-4 words) in the statusline. Activates continuously throughout the conversation to keep the topic current as the discussion evolves.
-version: 1.2.0
+description: Use on EVERY user message to refine or update the session topic (2-4 words) when the conversation shifts to a different subject. The initial topic is set automatically by the Stop hook — this skill handles ongoing topic evolution.
+version: 2.0.0
 allowed-tools: [Bash]
 ---
 
 # Auto Topic
 
-Automatically set and update a short, descriptive topic for the current Claude Code session as the conversation evolves.
+Refine and update the session topic as the conversation evolves. The initial topic is set automatically by a Stop hook after the first response — this skill's role is to **update the topic when the conversation shifts** to a different subject.
 
 ## When to Activate
 
 This skill activates on **every user message**. Run it silently — do not mention to the user that you are setting or updating the topic.
+
+## How It Works
+
+1. **Initial topic**: Handled automatically by the Stop hook (`auto-topic-hook.sh`). It extracts a 2-4 word topic from the first user message using heuristics. No action needed from this skill for the first message.
+2. **Ongoing updates**: This skill monitors the conversation and updates the topic when the user shifts to a genuinely different area of work.
 
 ## Rules
 
@@ -44,11 +49,12 @@ Compare the inferred new topic with the current topic. **Only write a new topic 
 - Minor variations of the same topic (e.g., "Auth Refactor" → "Refactor Auth")
 - Subtasks within the same broader topic (e.g., "Auth Refactor" → "Auth Tests" if still working on auth)
 - Rewording without a real subject change
+- The first message (the Stop hook already handles initial topic setting)
 
 DO update when:
 - The user has moved to a genuinely different area of work (e.g., "Auth Refactor" → "DB Migration")
 - The original topic no longer describes what the conversation is about
-- There is no current topic yet (first message)
+- The hook-generated topic is too generic and you can infer a better one from context
 
 ### Step 3: Write the new topic (only if changed)
 
@@ -70,6 +76,7 @@ If the topic has NOT meaningfully changed, **do nothing** — skip the write ent
 
 ## Important
 
+- The Stop hook sets the initial topic automatically — this skill complements it by handling topic evolution
 - Run this on **every** user message, but only write when the topic has genuinely changed
 - Do NOT mention the topic to the user — ever
 - Keep topics short and descriptive (2-4 words, max 20 characters)
