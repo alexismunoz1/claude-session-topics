@@ -3,15 +3,28 @@
   "version": "2.0.0",
   "description": "Session topics for Claude Code — auto-set and display a topic in the statusline, change anytime with /set-topic",
   "bin": {
-    "claude-session-topics": "./bin/install.js"
+    "claude-session-topics": "bin/install.js"
   },
-  "files": ["bin/", "scripts/", "skills/", "LICENSE", "README.md"],
-  "keywords": ["claude", "claude-code", "statusline", "topic", "session", "productivity"],
+  "files": [
+    "bin/",
+    "scripts/",
+    "skills/",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "statusline",
+    "topic",
+    "session",
+    "productivity"
+  ],
   "author": "Alexis Muñoz",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexismunoz1/claude-session-topics"
+    "url": "git+https://github.com/alexismunoz1/claude-session-topics.git"
   },
   "homepage": "https://github.com/alexismunoz1/claude-session-topics"
 }
