@@ -21,14 +21,13 @@ Set or change the topic displayed in the Claude Code statusline.
 3. Run this bash command to discover the session ID and write the topic file:
 
 ```bash
-SESSION_ID=$(cat /tmp/claude-pid-$PPID 2>/dev/null)
+SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session" 2>/dev/null)
 if [ -n "$SESSION_ID" ]; then
     mkdir -p "$HOME/.claude/session-topics"
     echo "$ARGUMENTS" > "$HOME/.claude/session-topics/${SESSION_ID}"
     echo "Topic set to: $ARGUMENTS"
 else
-    echo "$ARGUMENTS" > "/tmp/claude-pending-topic-$PPID"
-    echo "Topic queued: $ARGUMENTS (will appear on next statusline refresh)"
+    echo "Error: No active session found. The statusline must run at least once before setting a topic."
 fi
 ```
 

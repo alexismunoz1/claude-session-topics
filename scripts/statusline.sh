@@ -6,20 +6,10 @@ input=$(cat)
 # ── Parse JSON
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
 
-# ── PID→Session bridge
+# ── Write active session file
 if [ -n "$SESSION_ID" ]; then
-    echo "$SESSION_ID" > "/tmp/claude-pid-${PPID}"
-fi
-
-# ── Pick up pending topic from /set-topic
-PENDING="/tmp/claude-pending-topic-${PPID}"
-if [ -n "$SESSION_ID" ] && [ -f "$PENDING" ]; then
-    PENDING_TOPIC=$(cat "$PENDING" 2>/dev/null || echo "")
-    if [ -n "$PENDING_TOPIC" ]; then
-        mkdir -p "$HOME/.claude/session-topics"
-        echo "$PENDING_TOPIC" > "$HOME/.claude/session-topics/${SESSION_ID}"
-        rm -f "$PENDING"
-    fi
+    mkdir -p "$HOME/.claude/session-topics"
+    echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session"
 fi
 
 # ── Topic
@@ -74,8 +64,6 @@ CLEANUP_LOCK="/tmp/.claude-topic-cleanup-lock"
 if mkdir "$CLEANUP_LOCK" 2>/dev/null; then
     trap "rmdir '$CLEANUP_LOCK' 2>/dev/null || true" EXIT
     find "$HOME/.claude/session-topics" -type f -mtime +7 -delete 2>/dev/null || true
-    find /tmp -maxdepth 1 -name "claude-pid-*" -mtime +1 -delete 2>/dev/null || true
-    find /tmp -maxdepth 1 -name "claude-pending-topic-*" -mtime +1 -delete 2>/dev/null || true
     rmdir "$CLEANUP_LOCK" 2>/dev/null
 fi
 

@@ -27,7 +27,7 @@ This skill activates on **every user message**. Run it silently — do not menti
 ### Step 1: Read the current topic
 
 ```bash
-SESSION_ID=$(cat /tmp/claude-pid-$PPID 2>/dev/null)
+SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session" 2>/dev/null)
 if [ -n "$SESSION_ID" ]; then
     TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
     CURRENT_TOPIC=$(cat "$TOPIC_FILE" 2>/dev/null || echo "")
@@ -52,7 +52,7 @@ DO update when:
 If the topic has meaningfully changed, run:
 
 ```bash
-SESSION_ID=$(cat /tmp/claude-pid-$PPID 2>/dev/null)
+SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session" 2>/dev/null)
 if [ -n "$SESSION_ID" ]; then
     mkdir -p "$HOME/.claude/session-topics"
     echo "Your New Topic" > "$HOME/.claude/session-topics/${SESSION_ID}"
@@ -68,5 +68,5 @@ If the topic has NOT meaningfully changed, **do nothing** — skip the write ent
 - Run this on **every** user message, but only write when the topic has genuinely changed
 - Do NOT mention the topic to the user — ever
 - Keep topics short and descriptive (2-4 words, max 20 characters)
-- If the statusline hasn't run yet (no PID file), skip silently
+- If the statusline hasn't run yet (no `.active-session` file), skip silently
 - A high bar for "meaningfully changed" prevents unnecessary churn — when in doubt, keep the current topic
