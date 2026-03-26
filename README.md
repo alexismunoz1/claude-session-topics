@@ -20,7 +20,8 @@ Supported colors: `red`, `green`, `yellow`, `blue`, `magenta` (default), `cyan`,
 
 ## What it does
 
-- Auto-detects a session topic from context on the first prompt
+- A Stop hook sets the initial topic automatically after Claude's first response (no model tokens spent)
+- The auto-topic skill refines the topic when the conversation shifts
 - Shows the topic in the Claude Code statusline (`◆ Topic`)
 - Change the topic anytime with `/set-topic`
 - Composes with existing statusline plugins (doesn't overwrite)
@@ -28,10 +29,11 @@ Supported colors: `red`, `green`, `yellow`, `blue`, `magenta` (default), `cyan`,
 ## What the installer configures
 
 1. Copies the statusline script to `~/.claude/session-topics/`
-2. Configures `statusLine` in `~/.claude/settings.json`
-3. Adds bash permission for the script
-4. Installs `auto-topic` and `set-topic` skills to `~/.claude/skills/`
-5. If you already have a statusline, creates a wrapper that shows both
+2. Installs the Stop hook (`auto-topic-hook.sh`) that sets the initial topic
+3. Configures `statusLine` in `~/.claude/settings.json`
+4. Adds bash permission for the script
+5. Installs `auto-topic` and `set-topic` skills to `~/.claude/skills/`
+6. If you already have a statusline, creates a wrapper that shows both
 
 ## Requirements
 
@@ -60,7 +62,7 @@ The default topic color is bold magenta. Three ways to change it:
 
 ### Auto-topic (automatic)
 
-Starts automatically on session start. Claude reads your first message and sets a short topic (2-4 words) summarizing the task.
+After Claude's first response, a Stop hook extracts a 2-4 word topic from your first message using lightweight heuristics (no model tokens spent). The auto-topic skill then monitors the conversation and updates the topic when you shift to a different subject.
 
 ### /set-topic (manual)
 
@@ -76,16 +78,18 @@ Change the topic at any time:
 ```
 Session starts
     |
-auto-topic skill fires on first message
+Claude sends first response
     |
-Claude writes topic to ~/.claude/session-topics/${SESSION_ID}
+Stop hook (auto-topic-hook.sh) extracts topic from first user message
     |
-Statusline script reads the topic file
+Writes topic to ~/.claude/session-topics/${SESSION_ID}
     |
-Displays: ◆ Topic
+auto-topic skill monitors for conversation shifts and updates topic
+    |
+Statusline script reads the topic file → displays: ◆ Topic
 ```
 
-The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
+The Stop hook runs after each model response and uses heuristics to extract the initial topic from the transcript. On subsequent messages, the auto-topic skill handles topic updates when the conversation shifts. The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
 
 ## Uninstall
 
