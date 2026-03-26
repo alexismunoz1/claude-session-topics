@@ -145,9 +145,9 @@ function showHelp() {
 ${BOLD}claude-session-topics${RESET} — session topics for Claude Code
 
 ${BOLD}Usage:${RESET}
-  npx @alexismunoz1/claude-session-topics            Install
-  npx @alexismunoz1/claude-session-topics --color cyan  Install with color
-  npx @alexismunoz1/claude-session-topics --uninstall   Uninstall
+  npx @alexismunozdev/claude-session-topics            Install
+  npx @alexismunozdev/claude-session-topics --color cyan  Install with color
+  npx @alexismunozdev/claude-session-topics --uninstall   Uninstall
 
 ${BOLD}Options:${RESET}
   --color <name>   Set topic color (red, green, yellow, blue, magenta,

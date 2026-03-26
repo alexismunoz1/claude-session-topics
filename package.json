@@ -1,5 +1,5 @@
 {
-  "name": "@alexismunoz1/claude-session-topics",
+  "name": "@alexismunozdev/claude-session-topics",
   "version": "2.0.0",
   "description": "Session topics for Claude Code — auto-set and display a topic in the statusline, change anytime with /set-topic",
   "bin": {

@@ -7,13 +7,13 @@ Session topics for Claude Code. Auto-detect and display a topic in the statuslin
 ## Install
 
 ```bash
-npx @alexismunoz1/claude-session-topics
+npx @alexismunozdev/claude-session-topics
 ```
 
 ## With color
 
 ```bash
-npx @alexismunoz1/claude-session-topics --color cyan
+npx @alexismunozdev/claude-session-topics --color cyan
 ```
 
 Supported colors: `red`, `green`, `yellow`, `blue`, `magenta` (default), `cyan`, `white`, `orange`, `grey`/`gray`. Raw ANSI codes are also accepted (e.g., `38;5;208`).
@@ -45,7 +45,7 @@ The default topic color is bold magenta. Three ways to change it:
 
 - Re-run with `--color <name>`:
   ```bash
-  npx @alexismunoz1/claude-session-topics --color cyan
+  npx @alexismunozdev/claude-session-topics --color cyan
   ```
 - Edit the config file directly:
   ```bash
@@ -90,7 +90,7 @@ The statusline script receives the session ID via stdin JSON, reads the correspo
 ## Uninstall
 
 ```bash
-npx @alexismunoz1/claude-session-topics --uninstall
+npx @alexismunozdev/claude-session-topics --uninstall
 ```
 
 ## License
