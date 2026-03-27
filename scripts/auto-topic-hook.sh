@@ -34,7 +34,7 @@ fi
 
 # ── Ensure topics directory exists and write active session
 mkdir -p "$HOME/.claude/session-topics"
-echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session"
+echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$PPID"
 
 # ── Fast path: topic already exists — nothing to do
 TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"

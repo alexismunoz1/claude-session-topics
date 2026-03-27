@@ -3,7 +3,7 @@ name: set-topic
 description: Set or change the session topic displayed in the statusline
 argument-hint: <topic text>
 allowed-tools: [Bash]
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Set Topic
@@ -22,7 +22,7 @@ Set or change the topic displayed in the Claude Code statusline.
 4. Run this bash command to discover the session ID, sanitize inputs, and write the topic file:
 
 ```bash
-SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session" 2>/dev/null)
+SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-\$PPID" 2>/dev/null)
 SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
 if [ -z "$SESSION_ID" ]; then
     echo "Error: No active session found. The statusline must run at least once before setting a topic."

@@ -14,7 +14,7 @@ fi
 # ── Write active session file
 if [ -n "$SESSION_ID" ]; then
     mkdir -p "$HOME/.claude/session-topics"
-    echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session"
+    echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$PPID"
 fi
 
 # ── Topic
@@ -69,6 +69,7 @@ CLEANUP_LOCK="/tmp/.claude-topic-cleanup-lock"
 if mkdir "$CLEANUP_LOCK" 2>/dev/null; then
     trap "rmdir '$CLEANUP_LOCK' 2>/dev/null || true" EXIT
     find "$HOME/.claude/session-topics" -type f -mtime +7 -not -name '.*' -delete 2>/dev/null || true
+    find "$HOME/.claude/session-topics" -type f -name '.active-session-*' -mtime +7 -delete 2>/dev/null || true
     rmdir "$CLEANUP_LOCK" 2>/dev/null
 fi
 

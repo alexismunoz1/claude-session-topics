@@ -1,7 +1,7 @@
 ---
 name: auto-topic
 description: Use on EVERY user message to refine or update the session topic (2-4 words) when the conversation shifts to a different subject. The initial topic is set automatically by the Stop hook — this skill handles ongoing topic evolution.
-version: 2.0.0
+version: 2.1.0
 allowed-tools: [Bash]
 ---
 
@@ -32,7 +32,7 @@ This skill activates on **every user message**. Run it silently — do not menti
 ### Step 1: Read the current topic
 
 ```bash
-SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session" 2>/dev/null)
+SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-\$PPID" 2>/dev/null)
 SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
 if [ -z "$SESSION_ID" ]; then
     echo "No active session found. Skipping."
@@ -61,7 +61,7 @@ DO update when:
 If the topic has meaningfully changed, run:
 
 ```bash
-SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session" 2>/dev/null)
+SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-\$PPID" 2>/dev/null)
 SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
 if [ -z "$SESSION_ID" ]; then
     exit 0
@@ -80,5 +80,5 @@ If the topic has NOT meaningfully changed, **do nothing** — skip the write ent
 - Run this on **every** user message, but only write when the topic has genuinely changed
 - Do NOT mention the topic to the user — ever
 - Keep topics short and descriptive (2-4 words, max 20 characters)
-- If the statusline hasn't run yet (no `.active-session` file), skip silently
+- If the statusline hasn't run yet (no `.active-session-$PPID` file), skip silently
 - A high bar for "meaningfully changed" prevents unnecessary churn — when in doubt, keep the current topic
