@@ -43,6 +43,7 @@ const SETTINGS_FILE = path.join(HOME, '.claude', 'settings.json');
 
 const SRC_STATUSLINE = path.join(__dirname, '..', 'scripts', 'statusline.sh');
 const SRC_HOOK_SCRIPT = path.join(__dirname, '..', 'scripts', 'auto-topic-hook.sh');
+const SRC_FIND_PID = path.join(__dirname, '..', 'scripts', 'find-claude-pid.sh');
 const SRC_SKILLS = path.join(__dirname, '..', 'skills');
 
 // ─── The statusline command that settings.json will reference ────────────────
@@ -248,6 +249,17 @@ function install(color) {
     fs.chmodSync(DEST_HOOK_SCRIPT, 0o755);
     ok('Copied auto-topic-hook.sh');
 
+    // ── Step 4b: Copy find-claude-pid.sh (belt-and-suspenders) ──────────
+
+    const DEST_FIND_PID = path.join(TOPICS_DIR, 'find-claude-pid.sh');
+    if (fs.existsSync(SRC_FIND_PID)) {
+        fs.copyFileSync(SRC_FIND_PID, DEST_FIND_PID);
+        fs.chmodSync(DEST_FIND_PID, 0o755);
+        ok('Copied find-claude-pid.sh');
+    } else {
+        info('find-claude-pid.sh not found in source (not required — PID lookup is inlined)');
+    }
+
     // ── Step 5: Configure statusline in settings.json ────────────────────
 
     const settings = readSettings();
@@ -449,7 +461,8 @@ function uninstall() {
 
     // ── Step 2: Delete scripts ───────────────────────────────────────────
 
-    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, ORIG_CMD_FILE];
+    const DEST_FIND_PID = path.join(TOPICS_DIR, 'find-claude-pid.sh');
+    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, DEST_FIND_PID, ORIG_CMD_FILE];
     for (const file of filesToDelete) {
         if (fs.existsSync(file)) {
             fs.unlinkSync(file);
