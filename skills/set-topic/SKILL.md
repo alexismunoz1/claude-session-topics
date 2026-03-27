@@ -22,7 +22,21 @@ Set or change the topic displayed in the Claude Code statusline.
 4. Run this bash command to discover the session ID, sanitize inputs, and write the topic file:
 
 ```bash
-SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-\$PPID" 2>/dev/null)
+# Find the ancestor claude process PID (stable across all contexts)
+CLAUDE_PID=""
+pid=$$
+while [ "$pid" -ne 1 ] 2>/dev/null; do
+    parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    [ -z "$parent" ] || [ "$parent" = "$pid" ] && break
+    comm=$(ps -o comm= -p "$parent" 2>/dev/null)
+    if [ "$comm" = "claude" ]; then CLAUDE_PID=$parent; break; fi
+    pid=$parent
+done
+if [ -z "$CLAUDE_PID" ]; then
+    echo "Error: Could not find claude process. The statusline must run at least once before setting a topic."
+    exit 1
+fi
+SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID" 2>/dev/null)
 SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
 if [ -z "$SESSION_ID" ]; then
     echo "Error: No active session found. The statusline must run at least once before setting a topic."

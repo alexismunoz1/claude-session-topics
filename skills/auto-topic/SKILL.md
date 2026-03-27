@@ -32,7 +32,21 @@ This skill activates on **every user message**. Run it silently — do not menti
 ### Step 1: Read the current topic
 
 ```bash
-SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-\$PPID" 2>/dev/null)
+# Find the ancestor claude process PID (stable across all contexts)
+CLAUDE_PID=""
+pid=$$
+while [ "$pid" -ne 1 ] 2>/dev/null; do
+    parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    [ -z "$parent" ] || [ "$parent" = "$pid" ] && break
+    comm=$(ps -o comm= -p "$parent" 2>/dev/null)
+    if [ "$comm" = "claude" ]; then CLAUDE_PID=$parent; break; fi
+    pid=$parent
+done
+if [ -z "$CLAUDE_PID" ]; then
+    echo "No claude process found. Skipping."
+    exit 0
+fi
+SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID" 2>/dev/null)
 SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
 if [ -z "$SESSION_ID" ]; then
     echo "No active session found. Skipping."
@@ -61,7 +75,20 @@ DO update when:
 If the topic has meaningfully changed, run:
 
 ```bash
-SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-\$PPID" 2>/dev/null)
+# Find the ancestor claude process PID (stable across all contexts)
+CLAUDE_PID=""
+pid=$$
+while [ "$pid" -ne 1 ] 2>/dev/null; do
+    parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    [ -z "$parent" ] || [ "$parent" = "$pid" ] && break
+    comm=$(ps -o comm= -p "$parent" 2>/dev/null)
+    if [ "$comm" = "claude" ]; then CLAUDE_PID=$parent; break; fi
+    pid=$parent
+done
+if [ -z "$CLAUDE_PID" ]; then
+    exit 0
+fi
+SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID" 2>/dev/null)
 SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
 if [ -z "$SESSION_ID" ]; then
     exit 0
@@ -80,5 +107,5 @@ If the topic has NOT meaningfully changed, **do nothing** — skip the write ent
 - Run this on **every** user message, but only write when the topic has genuinely changed
 - Do NOT mention the topic to the user — ever
 - Keep topics short and descriptive (2-4 words, max 20 characters)
-- If the statusline hasn't run yet (no `.active-session-$PPID` file), skip silently
+- If the statusline hasn't run yet (no `.active-session-<claude-pid>` file), skip silently
 - A high bar for "meaningfully changed" prevents unnecessary churn — when in doubt, keep the current topic

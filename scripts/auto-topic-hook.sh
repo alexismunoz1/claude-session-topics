@@ -7,6 +7,13 @@ set -euo pipefail
 
 input=$(cat)
 
+# ── Find the ancestor claude process PID (stable across all contexts)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CLAUDE_PID=$(bash "$SCRIPT_DIR/find-claude-pid.sh" 2>/dev/null || echo "")
+if [ -z "$CLAUDE_PID" ]; then
+    exit 0
+fi
+
 # ── Parse JSON fields
 SESSION_ID=$(echo "$input" | python3 -c "
 import sys, json
@@ -32,9 +39,9 @@ if [ -z "$SESSION_ID" ]; then
     exit 0
 fi
 
-# ── Ensure topics directory exists and write active session
+# ── Ensure topics directory exists and write active session (keyed by claude PID)
 mkdir -p "$HOME/.claude/session-topics"
-echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$PPID"
+echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID"
 
 # ── Fast path: topic already exists — nothing to do
 TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"

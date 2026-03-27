@@ -3,6 +3,13 @@ set -euo pipefail
 
 input=$(cat)
 
+# ── Find the ancestor claude process PID (stable across all contexts)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CLAUDE_PID=$(bash "$SCRIPT_DIR/find-claude-pid.sh" 2>/dev/null || echo "")
+if [ -z "$CLAUDE_PID" ]; then
+    exit 0
+fi
+
 # ── Parse JSON
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
 SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
@@ -11,10 +18,10 @@ if [ -z "$SESSION_ID" ]; then
     exit 0
 fi
 
-# ── Write active session file
+# ── Write active session file (keyed by claude process PID for cross-context reliability)
 if [ -n "$SESSION_ID" ]; then
     mkdir -p "$HOME/.claude/session-topics"
-    echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$PPID"
+    echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID"
 fi
 
 # ── Topic
