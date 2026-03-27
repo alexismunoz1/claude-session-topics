@@ -2,7 +2,7 @@
 
 Session topics for Claude Code. Auto-detect and display a topic in the statusline, change anytime with `/set-topic`.
 
-![Session topics demo](https://github.com/user-attachments/assets/3698013f-123c-4d7e-8511-44718da5c3a4)
+![Session topics demo](./assets/session-topics-demo.jpg)
 
 ## Install
 
