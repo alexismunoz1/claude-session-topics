@@ -20,7 +20,7 @@ Supported colors: `red`, `green`, `yellow`, `blue`, `magenta` (default), `cyan`,
 
 ## What it does
 
-- A Stop hook sets the initial topic automatically after Claude's first response (no model tokens spent)
+- After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using YAKE keyword extraction (no model tokens spent)
 - The auto-topic skill refines the topic when the conversation shifts
 - Shows the topic in the Claude Code statusline (`◆ Topic`)
 - Change the topic anytime with `/set-topic`
@@ -39,7 +39,10 @@ Supported colors: `red`, `green`, `yellow`, `blue`, `magenta` (default), `cyan`,
 
 - `jq`
 - `bash`
+- Python 3
 - POSIX-compatible system (macOS, Linux)
+
+**Note:** Python dependencies (YAKE for keyword extraction, langdetect for language detection) are installed automatically during setup. If automatic installation fails, the plugin falls back to reduced functionality and displays instructions for manual installation.
 
 ## Customization
 
@@ -62,7 +65,7 @@ The default topic color is bold magenta. Three ways to change it:
 
 ### Auto-topic (automatic)
 
-After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using lightweight heuristics (no model tokens spent). The auto-topic skill then monitors the conversation and updates the topic when you shift to a different subject.
+After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using YAKE keyword extraction (no model tokens spent). The auto-topic skill then monitors the conversation and updates the topic when you shift to a different subject.
 
 ### /set-topic (manual)
 
@@ -89,7 +92,7 @@ auto-topic skill monitors for conversation shifts and updates topic
 Statusline script reads the topic file → displays: ◆ Topic
 ```
 
-The Stop hook runs after each model response and uses heuristics to extract the initial topic from the transcript. On subsequent messages, the auto-topic skill handles topic updates when the conversation shifts. The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
+The Stop hook runs after each model response and uses YAKE (Yet Another Keyword Extractor) to extract the initial topic from the transcript. YAKE is a lightweight, unsupervised keyword extraction algorithm that provides better results than simple bag-of-words approaches. If YAKE is not available, it falls back to a legacy heuristic method. On subsequent messages, the auto-topic skill handles topic updates when the conversation shifts. The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
 
 ## Uninstall
 

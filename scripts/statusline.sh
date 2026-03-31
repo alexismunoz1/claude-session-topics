@@ -91,7 +91,26 @@ if mkdir "$CLEANUP_LOCK" 2>/dev/null; then
     rmdir "$CLEANUP_LOCK" 2>/dev/null
 fi
 
+# ── Run user's original statusline command (if any)
+ORIG_OUTPUT=""
+ORIG_CMD_FILE="$HOME/.claude/session-topics/.original-statusline-cmd"
+if [ -f "$ORIG_CMD_FILE" ]; then
+    ORIG_CMD=$(cat "$ORIG_CMD_FILE" 2>/dev/null || echo "")
+    if [ -n "$ORIG_CMD" ]; then
+        ORIG_OUTPUT=$(echo "$input" | bash -c "$ORIG_CMD" 2>/dev/null || echo "")
+    fi
+fi
+
 # ── Output
+TOPIC_OUTPUT=""
 if [ -n "$TOPIC" ]; then
-    echo -e "${C_BOLD}${C_TOPIC}◆ ${TOPIC}${C_RESET}"
+    TOPIC_OUTPUT="${C_BOLD}${C_TOPIC}◆ ${TOPIC}${C_RESET}"
+fi
+
+if [ -n "$TOPIC_OUTPUT" ] && [ -n "$ORIG_OUTPUT" ]; then
+    echo -e "${TOPIC_OUTPUT} | ${ORIG_OUTPUT}"
+elif [ -n "$TOPIC_OUTPUT" ]; then
+    echo -e "${TOPIC_OUTPUT}"
+elif [ -n "$ORIG_OUTPUT" ]; then
+    echo -e "${ORIG_OUTPUT}"
 fi

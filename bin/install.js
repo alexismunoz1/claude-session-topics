@@ -44,6 +44,7 @@ const SETTINGS_FILE = path.join(HOME, '.claude', 'settings.json');
 const SRC_STATUSLINE = path.join(__dirname, '..', 'scripts', 'statusline.sh');
 const SRC_HOOK_SCRIPT = path.join(__dirname, '..', 'scripts', 'auto-topic-hook.sh');
 const SRC_FIND_PID = path.join(__dirname, '..', 'scripts', 'find-claude-pid.sh');
+const SRC_EXTRACT_TOPIC = path.join(__dirname, '..', 'scripts', 'extract_topic.py');
 const SRC_SKILLS = path.join(__dirname, '..', 'skills');
 
 // ─── The statusline command that settings.json will reference ────────────────
@@ -249,7 +250,18 @@ function install(color) {
     fs.chmodSync(DEST_HOOK_SCRIPT, 0o755);
     ok('Copied auto-topic-hook.sh');
 
-    // ── Step 4b: Copy find-claude-pid.sh (belt-and-suspenders) ──────────
+    // ── Step 4b: Copy extract_topic.py (required by hook) ────────────────
+
+    const DEST_EXTRACT_TOPIC = path.join(TOPICS_DIR, 'extract_topic.py');
+    if (!fs.existsSync(SRC_EXTRACT_TOPIC)) {
+        err(`Source extract_topic.py not found: ${SRC_EXTRACT_TOPIC}`);
+        process.exit(1);
+    }
+    fs.copyFileSync(SRC_EXTRACT_TOPIC, DEST_EXTRACT_TOPIC);
+    fs.chmodSync(DEST_EXTRACT_TOPIC, 0o755);
+    ok('Copied extract_topic.py');
+
+    // ── Step 4c: Copy find-claude-pid.sh (belt-and-suspenders) ──────────
 
     const DEST_FIND_PID = path.join(TOPICS_DIR, 'find-claude-pid.sh');
     if (fs.existsSync(SRC_FIND_PID)) {
@@ -277,38 +289,34 @@ function install(color) {
             break;
         }
         case 'B': {
-            // Already ours — just update the script (already copied above)
+            // Already ours — scripts already updated above
+            // Migrate from wrapper to direct statusline if needed
+            if (settings.statusLine.command === WRAPPER_CMD) {
+                settings.statusLine.command = STATUSLINE_CMD;
+                writeSettings(settings);
+                info('Migrated from wrapper to direct statusline');
+            }
             ok('statusLine already configured for session-topics (updated script)');
             break;
         }
         case 'C': {
-            // Another command exists — create wrapper
+            // Another command exists — back it up, statusline.sh will run it
             const origCmd = settings.statusLine.command;
 
-            // Backup original command (read-only: 0400 to prevent tampering)
             try { fs.unlinkSync(ORIG_CMD_FILE); } catch {}
             fs.writeFileSync(ORIG_CMD_FILE, origCmd, { encoding: 'utf8', mode: 0o400 });
             info(`Backed up original statusLine command to .original-statusline-cmd`);
 
-            // Write wrapper
-            fs.writeFileSync(DEST_WRAPPER, WRAPPER_SCRIPT, { encoding: 'utf8', mode: 0o600 });
-            fs.chmodSync(DEST_WRAPPER, 0o755);
-            info('Created wrapper-statusline.sh');
-
-            // Update settings to use wrapper
-            settings.statusLine.command = WRAPPER_CMD;
+            settings.statusLine.command = STATUSLINE_CMD;
             writeSettings(settings);
-            ok('Configured statusLine wrapper (preserves your existing statusline)');
+            ok('Configured statusLine (your existing statusline is preserved and runs alongside)');
             break;
         }
         case 'D': {
-            // statusLine exists but no valid command — treat as case A
-            settings.statusLine = {
-                type: 'command',
-                command: STATUSLINE_CMD,
-            };
+            // statusLine exists but no valid command
+            settings.statusLine.command = STATUSLINE_CMD;
             writeSettings(settings);
-            ok('Configured statusLine in settings.json (replaced invalid entry)');
+            ok('Configured statusLine command (existing statusLine had no command)');
             break;
         }
     }
@@ -379,6 +387,92 @@ function install(color) {
             ok(`Installed skill: ${BOLD}${skill}${RESET}`);
         } else {
             warn(`Skill source not found: ${skill}`);
+        }
+    }
+
+    // ── Step 8b: Check and install Python dependencies ─────────────────
+
+    heading('Checking Python dependencies');
+    const DEST_CHECK_DEPS = path.join(TOPICS_DIR, 'check_deps.py');
+    const SRC_CHECK_DEPS = path.join(__dirname, '..', 'scripts', 'check_deps.py');
+    if (fs.existsSync(SRC_CHECK_DEPS)) {
+        fs.copyFileSync(SRC_CHECK_DEPS, DEST_CHECK_DEPS);
+        fs.chmodSync(DEST_CHECK_DEPS, 0o755);
+        ok('Copied check_deps.py');
+    }
+
+    // Install YAKE
+    let yakeInstalled = false;
+    try {
+        execSync('python3 -c "import yake"', { stdio: 'pipe' });
+        ok('YAKE is installed');
+        yakeInstalled = true;
+    } catch {
+        info('YAKE not found, attempting automatic installation...');
+        
+        const installCommands = [
+            { cmd: 'pip3 install yake --user', desc: 'with --user flag' },
+            { cmd: 'pip3 install yake --break-system-packages --user', desc: 'with --break-system-packages' },
+            { cmd: 'python3 -m pip install yake --user', desc: 'using python3 -m pip' }
+        ];
+        
+        for (const { cmd, desc } of installCommands) {
+            try {
+                execSync(cmd, { stdio: 'pipe' });
+                ok(`YAKE installed automatically (${desc})`);
+                yakeInstalled = true;
+                break;
+            } catch {
+                // Try next command
+            }
+        }
+    }
+
+    // Install langdetect
+    let langdetectInstalled = false;
+    try {
+        execSync('python3 -c "import langdetect"', { stdio: 'pipe' });
+        ok('langdetect is installed');
+        langdetectInstalled = true;
+    } catch {
+        info('langdetect not found, attempting automatic installation...');
+        
+        const installCommands = [
+            { cmd: 'pip3 install langdetect --user', desc: 'with --user flag' },
+            { cmd: 'pip3 install langdetect --break-system-packages --user', desc: 'with --break-system-packages' },
+            { cmd: 'python3 -m pip install langdetect --user', desc: 'using python3 -m pip' }
+        ];
+        
+        for (const { cmd, desc } of installCommands) {
+            try {
+                execSync(cmd, { stdio: 'pipe' });
+                ok(`langdetect installed automatically (${desc})`);
+                langdetectInstalled = true;
+                break;
+            } catch {
+                // Try next command
+            }
+        }
+    }
+    
+    if (!yakeInstalled || !langdetectInstalled) {
+        warn('Some Python dependencies could not be installed automatically');
+        console.log(`\n  ${BOLD}To install manually:${RESET}`);
+        console.log(`    ${CYAN}pip3 install yake langdetect${RESET}`);
+        console.log(`\n  Or with --break-system-packages if needed:`);
+        console.log(`    ${CYAN}pip3 install yake langdetect --break-system-packages --user${RESET}\n`);
+        console.log(`  ${YELLOW}Note:${RESET} The plugin will still work with reduced functionality.`);
+        console.log(`        Installing all dependencies is recommended for best results.\n`);
+    }
+        
+        if (!yakeInstalled) {
+            warn('Could not install YAKE automatically');
+            console.log(`\n  ${BOLD}To install YAKE manually:${RESET}`);
+            console.log(`    ${CYAN}pip3 install yake${RESET}`);
+            console.log(`\n  Or with --break-system-packages if needed:`);
+            console.log(`    ${CYAN}pip3 install yake --break-system-packages --user${RESET}\n`);
+            console.log(`  ${YELLOW}Note:${RESET} The plugin will still work using the legacy extraction method.`);
+            console.log(`        Installing YAKE is recommended for better topic quality.\n`);
         }
     }
 
@@ -463,7 +557,8 @@ function uninstall() {
     // ── Step 2: Delete scripts ───────────────────────────────────────────
 
     const DEST_FIND_PID = path.join(TOPICS_DIR, 'find-claude-pid.sh');
-    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, DEST_FIND_PID, ORIG_CMD_FILE];
+    const DEST_EXTRACT_TOPIC = path.join(TOPICS_DIR, 'extract_topic.py');
+    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, DEST_FIND_PID, DEST_EXTRACT_TOPIC, ORIG_CMD_FILE];
     for (const file of filesToDelete) {
         if (fs.existsSync(file)) {
             fs.unlinkSync(file);

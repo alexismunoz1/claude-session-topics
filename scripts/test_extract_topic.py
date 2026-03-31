@@ -36,33 +36,36 @@ TEST_CASES = [
         "input": "I need to refactor the database migration scripts",
         "expected": "Database Migration Scripts",
     },
-    # ── Spanish messages → English-only policy ──
+    # ── Spanish messages → English-only policy: return empty ──
     {
         "num": 2,
         "input": "Hola, necesito ayuda con el componente de autenticación de NextAuth",
-        "expected": "NextAuth",
-        "description": "Spanish words filtered, only tech term remains",
+        "expected": "",
+        "description": "Spanish-heavy text → empty (LLM skill handles it)",
     },
     {
         "num": 3,
         "input": "Corrige el error de autenticación en NeonDB",
-        "expected": "NeonDB",
-        "description": "Spanish words filtered, only tech term remains",
+        "expected": "",
+        "description": "Spanish-heavy text → empty (LLM skill handles it)",
     },
     {
         "num": 6,
         "input": "Revisa los tests de la API de pagos",
         "expected": "Tests API",
+        "description": "Mixed text with tech terms - extracts English keywords",
     },
     {
         "num": 9,
         "input": "Implementa rate limiting en el endpoint de login",
         "expected": "Rate Limiting Endpoint Login",
+        "description": "Mixed text with tech terms - extracts English keywords",
     },
     {
         "num": 10,
         "input": "Actualiza las dependencias de Docker Compose",
-        "expected": "Docker Compose",
+        "expected": "",
+        "description": "Spanish-heavy text → empty (LLM skill handles it)",
     },
     {
         "num": 20,
@@ -73,19 +76,20 @@ TEST_CASES = [
     {
         "num": 21,
         "input": "Configura el endpoint de autenticación con NextAuth y NeonDB",
-        "check_contains": ["NextAuth", "NeonDB", "Endpoint"],
-        "check_excludes": ["Autenticacion"],
+        "expected": "",
+        "description": "Spanish-heavy text → empty (LLM skill handles it)",
     },
     {
         "num": 22,
         "input": "Investiga por qué el hook de session topic genera basura",
-        "check_contains": ["Hook", "Session", "Topic"],
-        "check_excludes": ["Genera", "Basura"],
+        "expected": "",
+        "description": "Spanish-heavy text → empty (LLM skill handles it)",
     },
     {
         "num": 23,
         "input": "Implementa rate limiting en el endpoint de login",
         "expected": "Rate Limiting Endpoint Login",
+        "description": "Mixed text with tech terms - extracts English keywords",
     },
     # ── Markdown image stripping ──
     {
@@ -190,6 +194,94 @@ TEST_CASES = [
         "input": "Modifica el diseño de la pestaña de búsqueda",
         "expected": "",
         "description": "diseño contains ñ → all Spanish → empty",
+    },
+    # ── Semantic coherence tests ──
+    {
+        "num": 28,
+        "input": "Image rendering on entry screen for club members",
+        "check_contains": ["Image", "Rendering"],
+        "description": "YAKE selects statistically relevant terms - verify Image and Rendering present",
+    },
+    {
+        "num": 29,
+        "input": "Configure entra ID for club screen image",
+        "check_contains": ["Entra", "ID"],
+        "description": "YAKE prioritizes technical terms - verify Entra and ID present",
+    },
+    {
+        "num": 30,
+        "input": "Button click handler form validation error message",
+        "check_contains": ["Button", "Form"],
+        "description": "YAKE selects UI-related terms - accept any coherent 2-4 word combination",
+    },
+    {
+        "num": 31,
+        "input": "Fix database connection pool timeout issue in production",
+        "check_contains": ["Database", "Connection"],
+        "description": "YAKE preserves core technical terms - verify Database and Connection present",
+    },
+    {
+        "num": 32,
+        "input": "User profile avatar image upload crop resize feature",
+        "check_contains": ["User", "Profile"],
+        "description": "YAKE identifies entity terms - verify User and Profile present",
+    },
+    {
+        "num": 33,
+        "input": "API response data format JSON parsing error handling",
+        "check_contains": ["API", "Response"],
+        "description": "YAKE captures API context - verify API and Response present",
+    },
+    {
+        "num": 34,
+        "input": "Server endpoint request method GET POST parameters",
+        "check_contains": ["Server", "Endpoint"],
+        "description": "YAKE identifies infrastructure terms - verify Server and Endpoint present",
+    },
+    # ── Bug fix: Spanish detection - empty for Spanish-heavy texts ──
+    {
+        "num": 35,
+        "input": "![Image](url) Emigró el modal a la versión desktop",
+        "expected": "",
+        "description": "Spanish-heavy text → empty (LLM skill handles it)",
+    },
+    {
+        "num": 36,
+        "input": "El componente migra a la nueva arquitectura",
+        "expected": "",
+        "description": "Spanish-heavy text → empty (LLM skill handles it)",
+    },
+    {
+        "num": 37,
+        "input": "Montan modales alrededor background",
+        "expected": "",
+        "description": "Spanish-heavy text → empty (LLM skill handles it)",
+    },
+    {
+        "num": 38,
+        "input": "Montar el modal en el background",
+        "expected": "Modal Background",
+        "description": "Mixed text with tech terms - extracts English keywords",
+    },
+    {
+        "num": 39,
+        "input": "Ventanas y modales en el desktop",
+        "expected": "",
+        "description": "Spanish-heavy text → empty (LLM skill handles it)",
+    },
+    # ── Bug fix: Spanish dimension words ──
+    {
+        "num": 40,
+        "input": "Screen profile ancho 900px",
+        "check_contains": ["Screen", "Profile", "900px"],
+        "check_excludes": ["Ancho"],
+        "description": "Bug fix: Spanish dimension word 'ancho' filtered",
+    },
+    {
+        "num": 41,
+        "input": "Fix profile width 900px",
+        "check_contains": ["Profile", "Width", "900px"],
+        "description": "English dimension words work correctly",
     },
 ]
 

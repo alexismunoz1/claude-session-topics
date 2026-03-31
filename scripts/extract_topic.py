@@ -2,6 +2,18 @@
 """Extract session topic from Claude Code transcript.
 
 Standalone module — used by auto-topic-hook.sh and test_extract_topic.py.
+
+Uses YAKE (Yet Another Keyword Extractor) for improved keyword extraction.
+YAKE is a lightweight, unsupervised keyword extraction algorithm that provides
+better results than simple bag-of-words approaches. Falls back to legacy
+bag-of-words method if YAKE is unavailable or fails.
+
+Usage:
+    python extract_topic.py <transcript.jsonl>
+
+Requirements:
+    - Python 3.x
+    - yake (optional but recommended): pip3 install yake
 """
 
 import json
@@ -9,7 +21,26 @@ import re
 import sys
 import unicodedata
 
-VERSION = 4  # Bump when extraction logic changes → invalidates cached topics
+# Language detection for enforcing English-only topics
+try:
+    from langdetect import detect, DetectorFactory
+    from langdetect.lang_detect_exception import LangDetectException
+    # Set seed for reproducible results
+    DetectorFactory.seed = 0
+    LANGDETECT_AVAILABLE = True
+except ImportError:
+    LANGDETECT_AVAILABLE = False
+
+# YAKE integration for improved keyword extraction
+# YAKE (Yet Another Keyword Extractor) is a lightweight, unsupervised keyword extraction
+# algorithm that provides better results than simple bag-of-words approaches
+try:
+    import yake
+    YAKE_AVAILABLE = True
+except ImportError:
+    YAKE_AVAILABLE = False
+
+VERSION = 9  # Bump when extraction logic changes → invalidates cached topics
 
 
 def _strip_accents(s):
@@ -51,7 +82,34 @@ ACTION_VERBS = {
     'enable', 'disable', 'migrate', 'deploy', 'run', 'start', 'stop',
     'set', 'get', 'put', 'send', 'fetch', 'load', 'save', 'read',
     'find', 'replace', 'convert', 'merge', 'split', 'connect',
-    'setup', 'init', 'initialize', 'open', 'close', 'look',
+    'setup', 'init', 'initialize', 'open', 'close', 'look', 'adapt',
+    'adjust', 'improve', 'enhance', 'optimize', 'polish', 'upgrade',
+    'downgrade', 'revert', 'restore', 'backup', 'export', 'import',
+    'sync', 'validate', 'verify', 'authenticate', 'authorize',
+    'compress', 'minify', 'bundle', 'transpile', 'compile',
+}
+
+# Compound technical terms that should be kept together as n-grams
+COMPOUND_TERMS = {
+    # UI Components
+    'modal', 'dialog', 'popup', 'tooltip', 'dropdown', 'accordion',
+    'carousel', 'slider', 'navbar', 'sidebar', 'footer', 'header',
+    'button', 'input', 'field', 'form', 'card', 'panel', 'tab',
+    # Layout terms  
+    'layout', 'grid', 'flex', 'container', 'wrapper', 'section',
+    'desktop', 'mobile', 'responsive', 'viewport', 'screen',
+    # Data/State
+    'state', 'props', 'context', 'store', 'cache', 'session',
+    'database', 'table', 'column', 'record', 'query', 'migration',
+    # API/Network
+    'api', 'endpoint', 'route', 'request', 'response', 'handler',
+    'middleware', 'controller', 'service', 'client', 'server',
+    # Auth/Security
+    'auth', 'login', 'logout', 'token', 'cookie', 'session',
+    'certificate', 'permission', 'role', 'user', 'account',
+    # Build/DevOps
+    'build', 'deploy', 'pipeline', 'ci', 'cd', 'docker', 'kubernetes',
+    'config', 'environment', 'production', 'staging', 'development',
 }
 
 # Spanish morphological suffixes (unaccented — words normalized before match)
@@ -92,7 +150,7 @@ _ES_WORDS = {
     'corrige', 'arregla', 'agrega', 'elimina', 'cambia', 'modifica',
     'implementa', 'construye', 'escribe', 'crea', 'revisa', 'configura',
     'instala', 'mueve', 'renombra', 'resuelve', 'maneja', 'oculta',
-    'habilita', 'deshabilita', 'migra', 'despliega', 'ejecuta', 'inicia',
+    'habilita', 'deshabilita', 'migra', 'emigra', 'emigro', 'despliega', 'ejecuta', 'inicia',
     'detiene', 'reemplaza', 'convierte', 'analiza', 'investiga', 'verifica',
     'actualiza', 'refactoriza', 'genera', 'necesita', 'quita', 'muestra',
     'busca', 'abre', 'cierra', 'sube', 'baja', 'funciona', 'funcione',
@@ -117,6 +175,27 @@ _ES_WORDS = {
     'decir', 'dice', 'dicen', 'saber', 'saben', 'querer', 'ver', 'veo',
     'llevar', 'lleva', 'llamar', 'llama', 'llaman', 'pasar', 'pasa',
     'quedar', 'queda', 'creer', 'cree', 'creen', 'conocer', 'conoce',
+    # Montar and related
+    'montar', 'monta', 'montan', 'monte', 'montando', 'montado',
+    # Position/location words
+    'alrededor', 'alrededores', 'encima', 'debajo', 'dentro', 'fuera',
+    'detras', 'delante', 'entre', 'hacia', 'desde', 'hasta',
+    # UI-related Spanish words
+    'modales', 'ventana', 'ventanas', 'cuadro', 'cuadros', 'dialogo',
+    'boton', 'botones', 'campo', 'campos', 'fila', 'filas', 'columna', 'columnas',
+    # More common Spanish words that should be filtered
+    'emigro', 'emigró', 'emigra', 'emigró', 'necesito', 'necesita', 'ayuda',
+    'con', 'para', 'por', 'como', 'pero', 'mas', 'más', 'este', 'esta', 'esto',
+    'ese', 'esa', 'eso', 'aqui', 'aquí', 'alli', 'allí', 'ahi', 'ahí',
+    'arquitectura', 'arquitecturas', 'nueva', 'nuevo', 'nuevas', 'nuevos',
+    'viejos', 'viejas', 'viejo', 'vieja', 'error', 'errores', 'correcto',
+    # Size/dimension words
+    'ancho', 'ancha', 'anchos', 'anchas', 'alto', 'alta', 'altos', 'altas',
+    'largo', 'larga', 'largos', 'largas', 'pequeno', 'pequena', 'pequenos', 'pequenas',
+    'grande', 'grandes', 'mediano', 'mediana', 'medianos', 'medianas',
+    # More verbs
+    'arreglar', 'arregla', 'arreglan', 'arreglo', 'arreglando',
+    'hacer', 'hace', 'hacen', 'hago', 'hacia', 'hecho',
 }
 
 
@@ -134,7 +213,31 @@ def _is_spanish(word):
     return False
 
 
+def _is_primarily_spanish(text):
+    """Detect if text contains significant Spanish words.
+    
+    Uses a simple heuristic: if >40% of content words are Spanish,
+    consider the text Spanish. This is more reliable than langdetect
+    for short technical texts.
+    """
+    if not text:
+        return False
+    
+    # Extract words
+    words = re.findall(r'[a-zA-Z\u00C0-\u024F]+', text.lower())
+    if not words:
+        return False
+    
+    # Count Spanish words
+    spanish_count = sum(1 for w in words if _is_spanish(w))
+    
+    # If more than 25% are Spanish, consider it Spanish text
+    # Lower threshold to catch short phrases with Spanish verbs
+    return spanish_count / len(words) > 0.25
+
+
 # ── Extraction ──────────────────────────────────────────────────────────────
+
 
 def extract_user_text(transcript_path):
     """Read JSONL transcript and return the first user message text."""
@@ -182,6 +285,66 @@ def _get_user_text(obj):
     return None
 
 
+def _detect_language(text):
+    """Detect if text is primarily English or Spanish based on word frequency."""
+    if not text:
+        return "en"
+    
+    words = text.lower().split()
+    spanish_indicators = 0
+    english_indicators = 0
+    
+    for word in words:
+        clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', word)
+        if not clean:
+            continue
+        if _is_spanish(clean):
+            spanish_indicators += 1
+        elif clean in STOP_WORDS:
+            english_indicators += 1
+    
+    return "es" if spanish_indicators > english_indicators else "en"
+
+
+def _legacy_extract_topic(cleaned_text):
+    """
+    Legacy bag-of-words extraction method.
+    Used as fallback when YAKE is not available or fails.
+    """
+    # Tokenize → filter → classify
+    domain = []
+    verbs = []
+
+    for w in cleaned_text.split():
+        # Skip command tokens (--flag, -f, /command)
+        if w.startswith('-') or w.startswith('/'):
+            continue
+        clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', w)
+        if not clean or len(clean) < 2:
+            continue
+        cl = _strip_accents(clean.lower())
+        if cl in STOP_WORDS:
+            continue
+        if _is_spanish(clean):
+            continue
+        if cl in ACTION_VERBS:
+            verbs.append(clean)
+        else:
+            domain.append(clean)
+
+    # Build topic: domain words first, verbs as filler
+    words = domain[:4]
+    if not words and verbs:
+        words = verbs[:2]
+    elif len(words) == 1 and verbs:
+        words.append(verbs[0])
+
+    if not words:
+        return ''
+
+    return words
+
+
 def extract_topic(text):
     """Extract a concise 2-4 word English topic from user text."""
     if not text:
@@ -217,39 +380,125 @@ def extract_topic(text):
         text = re.sub(p, '', text, flags=re.IGNORECASE).strip()
         text = re.sub(r'^[,;:\s]+', '', text).strip()
 
-    # ── 6. Tokenize → filter → classify
-    domain = []
-    verbs = []
-
-    for w in text.split():
-        # Skip command tokens (--flag, -f, /command)
-        if w.startswith('-') or w.startswith('/'):
-            continue
-        clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', w)
-        if not clean or len(clean) < 2:
-            continue
-        cl = _strip_accents(clean.lower())
-        if cl in STOP_WORDS:
-            continue
-        if _is_spanish(clean):
-            continue
-        if cl in ACTION_VERBS:
-            verbs.append(clean)
-        else:
-            domain.append(clean)
-
-    # ── 7. Build topic: domain words first, verbs as filler
-    words = domain[:4]
-    if not words and verbs:
-        words = verbs[:2]
-    elif len(words) == 1 and verbs:
-        words.append(verbs[0])
-
-    if not words:
+    # ── 6. Language detection: reject Spanish texts
+    # This enforces English-only topics. If text is Spanish, return empty
+    # and let the auto-topic skill handle it via LLM.
+    if _is_primarily_spanish(text):
         return ''
 
-    # Title-case, max 50 chars
-    topic = ' '.join(w.capitalize() if not w[0].isupper() else w for w in words[:4])
+    # ── 7. Smart topic extraction with structured composition
+    # Goal: Create topics like "Fix Certificate Modal Desktop Layout"
+    # Structure: [ACTION VERB] + [MAIN OBJECT] + [CONTEXT/DETAIL]
+    # NOTE: Forced to English only (lan="en") to avoid Spanish words in topics
+    words = []
+    
+    if YAKE_AVAILABLE and len(text.split()) >= 3:
+        try:
+            # Force YAKE to use English only - rejects Spanish-heavy texts naturally
+            # This is intentional: we want English-only topics
+            kw_extractor = yake.KeywordExtractor(
+                lan="en",  # Force English, ignore Spanish
+                n=3,
+                dedupLim=0.9,
+                top=10,
+            )
+            
+            keywords = kw_extractor.extract_keywords(text)
+            
+            # Extract all candidate words from YAKE results
+            candidate_words = []
+            for score, keyword in keywords:
+                for word in keyword.split():
+                    clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', word)
+                    if not clean or len(clean) < 2:
+                        continue
+                    cl = _strip_accents(clean.lower())
+                    if cl in STOP_WORDS or _is_spanish(clean):
+                        continue
+                    if clean.lower() not in [w.lower() for w in candidate_words]:
+                        candidate_words.append(clean)
+            
+            # Build structured topic: [VERB] + [OBJECT] + [CONTEXT]
+            action_verb = None
+            main_object = None
+            context_words = []
+            
+            # First pass: Look for action verb at the beginning of the text
+            text_words = text.split()
+            for i, w in enumerate(text_words[:5]):  # Check first 5 words
+                clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', w)
+                cl = _strip_accents(clean.lower())
+                if cl in ACTION_VERBS:
+                    action_verb = clean
+                    break
+            
+            # Second pass: Find main object and context from candidates
+            for word in candidate_words:
+                word_lower = word.lower()
+                
+                # Skip if it's the same as the action verb
+                if action_verb and word_lower == action_verb.lower():
+                    continue
+                
+                # Identify compound terms and tech keywords
+                if word_lower in COMPOUND_TERMS or len(word) >= 4:
+                    if main_object is None:
+                        main_object = word
+                    elif len(context_words) < 2:
+                        context_words.append(word)
+                
+                if main_object and len(context_words) >= 2:
+                    break
+            
+            # Compose final topic with structure: VERB + OBJECT + CONTEXT
+            if action_verb:
+                words.append(action_verb)
+            if main_object:
+                words.append(main_object)
+            words.extend(context_words[:3])  # Add up to 3 context words
+            
+            # Fallback: if structured approach didn't work, use best YAKE candidates
+            if len(words) < 2:
+                words = candidate_words[:4]
+                
+        except Exception:
+            # If YAKE fails, fall through to legacy method
+            words = []
+    
+    # ── 7. Fallback to legacy extraction if YAKE didn't produce results
+    if not words:
+        words = _legacy_extract_topic(text)
+        if not words:
+            return ''
+
+    # ── 8. Post-process: limit to 2-4 words, capitalize, max 50 chars
+    # Ensure we have at least 2 words for better context
+    if len(words) == 1:
+        # Try to add context from compound terms or other keywords
+        for w in text.split():
+            clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', w)
+            if not clean or len(clean) < 2:
+                continue
+            cl = _strip_accents(clean.lower())
+            if cl in STOP_WORDS or _is_spanish(clean):
+                continue
+            if clean.lower() != words[0].lower():
+                if cl in COMPOUND_TERMS or len(clean) >= 4:
+                    words.append(clean)
+                    break
+    
+    # Limit to 1-4 words (allow single word if it's a strong tech term)
+    words = words[:4]
+    if not words:
+        return ''
+    # Allow single word only if it's a meaningful tech term (>= 4 chars)
+    if len(words) == 1 and len(words[0]) < 4:
+        return ''
+    
+    # Capitalize correctly: capitalize each word
+    topic = ' '.join(w.capitalize() if not w[0].isupper() else w for w in words)
+    
+    # Apply 50 character limit
     if len(topic) > 50:
         while len(topic) > 50 and len(words) > 2:
             words.pop()
@@ -258,6 +507,14 @@ def extract_topic(text):
             )
         if len(topic) > 50:
             topic = topic[:50].rstrip()
+    
+    # ── Final validation: reject topics containing Spanish words
+    # This enforces the English-only policy strictly
+    topic_words = topic.split()
+    spanish_count = sum(1 for w in topic_words if _is_spanish(w))
+    if spanish_count > 0:
+        # Contains Spanish words - return empty to trigger fallback behavior
+        return ''
 
     return topic
 
