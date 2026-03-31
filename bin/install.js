@@ -286,6 +286,7 @@ function install(color) {
             const origCmd = settings.statusLine.command;
 
             // Backup original command (read-only: 0400 to prevent tampering)
+            try { fs.unlinkSync(ORIG_CMD_FILE); } catch {}
             fs.writeFileSync(ORIG_CMD_FILE, origCmd, { encoding: 'utf8', mode: 0o400 });
             info(`Backed up original statusLine command to .original-statusline-cmd`);
 
