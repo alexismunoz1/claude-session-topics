@@ -16,16 +16,25 @@ This skill activates on **every user message**. Run it silently — do not menti
 ## How It Works
 
 1. **Initial topic**: Handled automatically by the Stop hook (`auto-topic-hook.sh`). It extracts a 2-4 word topic from the first user message using heuristics. No action needed from this skill for the first message.
-2. **Ongoing updates**: This skill monitors the conversation and updates the topic when the user shifts to a genuinely different area of work.
+2. **Ongoing updates**: This skill monitors the conversation and updates the topic when needed — either because the hook produced a poor/missing topic, or because the user shifted to a different area of work.
 
 ## Rules
 
-1. After reading each user message, infer a topic of **2-4 words** (max 20 characters) that reflects what the user is currently working on
+1. After reading each user message, infer a topic of **2-5 words** (max 50 characters) that reflects what the user is currently working on
 2. The topic should reflect the user's **current** focus, not the overall session theme. When in doubt, **update** the topic
-3. Use the project's domain language (e.g., Spanish is fine if the user writes in Spanish)
-4. Examples: "Auth Refactor", "FAQ Bug", "Search Filters", "DB Migration", "API Tests"
-5. Run the topic check and update **silently** — do not tell the user you set or changed it
-6. If `/set-topic` is used later by the user, that takes priority
+3. Topics MUST always be in English, regardless of the user's language. If the user writes in Spanish or another language, translate the topic to English (e.g., "Autenticación NeonDB" → "NeonDB Auth")
+4. Focus on the user's **intent**, not their exact words. For "En la home desktop, en el buscard se muestra este elemento...", the topic should be "Home Search Navigation" or "Search Bar Redirect", not a literal extraction of words
+5. Examples: "NeonDB Auth Session", "React Query Cache", "Payment API Tests", "Docker Compose Setup", "Login Component Fix"
+6. Run the topic check and update **silently** — do not tell the user you set or changed it
+7. If `/set-topic` is used later by the user, that takes priority
+
+## Word Prioritization
+
+When generating a topic, prioritize words in this order:
+1. **Domain/technology terms** (e.g., NeonDB, React, API, Auth, Docker) — always include these
+2. **Specific nouns** (e.g., cache, session, endpoint, component, filter) — include when space allows
+3. **Generic nouns** (e.g., error, bug, issue) — only include if no better terms are available
+4. **Action verbs** (e.g., fix, add, update, refactor) — omit unless the topic would be unclear without one
 
 ## How to Check and Update the Topic
 
@@ -52,11 +61,14 @@ Compare the inferred new topic with the current topic. **Only write a new topic 
 - The first message IF the Stop hook has already set a topic (check if current topic is non-empty)
 
 DO update when:
-- The current topic is empty — **always** set a topic if there is no current topic, regardless of message number
+- The current topic is empty or was not set by the hook — **always** infer a topic from the conversation context
+- The current topic doesn't clearly describe what the user is working on (e.g., "Home Desktop Buscard" is not a meaningful topic)
 - The user has moved to a different file, directory, or area of work (e.g., "Components Analysis" → "TSConfig Analysis")
 - The user's current request focuses on something different from what the current topic describes
 - The original topic no longer describes what the conversation is about
 - The hook-generated topic is too generic and you can infer a better one from context
+- The current topic is dominated by action verbs or generic terms (e.g., "Fix Error", "Corrige Bug", "Add New") — replace with domain-specific terms from the user's message
+- The current topic is not in English — always translate to English (e.g., "Dependencias Docker Compose" → "Docker Compose Dependencies")
 
 ### Step 3: Write the new topic (only if changed)
 
@@ -72,7 +84,7 @@ mkdir -p "$HOME/.claude/session-topics"
 printf '%s\n' "Your New Topic" > "$HOME/.claude/session-topics/${SESSION_ID}"
 ```
 
-Replace `Your New Topic` with the inferred 2-4 word topic. The topic must contain only safe display text (letters, numbers, spaces, basic punctuation).
+Replace `Your New Topic` with the inferred 2-5 word topic. The topic must contain only safe display text (letters, numbers, spaces, basic punctuation).
 
 If the topic has NOT meaningfully changed, **do nothing** — skip the write entirely.
 
@@ -81,7 +93,7 @@ If the topic has NOT meaningfully changed, **do nothing** — skip the write ent
 - The Stop hook sets the initial topic automatically — this skill complements it by handling topic evolution
 - Run this on **every** user message, but only write when the topic has genuinely changed
 - Do NOT mention the topic to the user — ever
-- Keep topics short and descriptive (2-4 words, max 20 characters)
+- Keep topics short and descriptive (2-5 words, max 50 characters)
 - If the statusline hasn't run yet (no `.active-session-<claude-pid>` file), skip silently
 - A low bar for "changed" keeps the topic fresh — when in doubt, update
 - If the current topic is empty, **always** infer and set a topic — do not wait for the Stop hook

@@ -62,7 +62,7 @@ The default topic color is bold magenta. Three ways to change it:
 
 ### Auto-topic (automatic)
 
-After Claude's first response, a Stop hook extracts a 2-4 word topic from your first message using lightweight heuristics (no model tokens spent). The auto-topic skill then monitors the conversation and updates the topic when you shift to a different subject.
+After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using lightweight heuristics (no model tokens spent). The auto-topic skill then monitors the conversation and updates the topic when you shift to a different subject.
 
 ### /set-topic (manual)
 
