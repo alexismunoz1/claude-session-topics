@@ -464,19 +464,6 @@ function install(color) {
         console.log(`  ${YELLOW}Note:${RESET} The plugin will still work with reduced functionality.`);
         console.log(`        Installing all dependencies is recommended for best results.\n`);
     }
-        
-        if (!yakeInstalled) {
-            warn('Could not install YAKE automatically');
-            console.log(`\n  ${BOLD}To install YAKE manually:${RESET}`);
-            console.log(`    ${CYAN}pip3 install yake${RESET}`);
-            console.log(`\n  Or with --break-system-packages if needed:`);
-            console.log(`    ${CYAN}pip3 install yake --break-system-packages --user${RESET}\n`);
-            console.log(`  ${YELLOW}Note:${RESET} The plugin will still work using the legacy extraction method.`);
-            console.log(`        Installing YAKE is recommended for better topic quality.\n`);
-        }
-    }
-
-    // ── Step 9: Configure color ──────────────────────────────────────────
 
     if (color) {
         fs.writeFileSync(COLOR_CONFIG, color, { encoding: 'utf8', mode: 0o600 });
