@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 input=$(cat)
 
 # ── Find the ancestor claude process PID (stable across all contexts)
@@ -24,6 +26,7 @@ CLAUDE_PID=$(find_claude_pid)
 # ── Parse JSON
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
 SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
+TRANSCRIPT_PATH=$(echo "$input" | jq -r '.transcript_path // ""')
 if [ -z "$SESSION_ID" ]; then
     # No valid session ID — skip session-dependent logic, just run original statusline
     exit 0
@@ -41,6 +44,14 @@ if [ -n "$SESSION_ID" ]; then
     TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
     if [ -f "$TOPIC_FILE" ]; then
         TOPIC=$(cat "$TOPIC_FILE" 2>/dev/null || echo "")
+    fi
+fi
+# If topic file doesn't exist, try to extract from transcript directly
+if [ -z "$TOPIC" ] && [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+    TOPIC=$(python3 "$SCRIPT_DIR/extract_topic.py" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
+    if [ -n "$TOPIC" ] && [ -n "$SESSION_ID" ]; then
+        mkdir -p "$HOME/.claude/session-topics"
+        echo "$TOPIC" > "$TOPIC_FILE"
     fi
 fi
 if [ -z "$TOPIC" ] && [ -n "${CLAUDE_SESSION_TOPICS_TOPIC:-}" ]; then
@@ -85,7 +96,7 @@ C_RESET='\033[0m'
 # ── Cleanup stale files (atomic lock)
 CLEANUP_LOCK="/tmp/.claude-topic-cleanup-lock"
 if mkdir "$CLEANUP_LOCK" 2>/dev/null; then
-    trap "rmdir '$CLEANUP_LOCK' 2>/dev/null || true" EXIT
+    trap 'rmdir "$CLEANUP_LOCK" 2>/dev/null || true' EXIT
     find "$HOME/.claude/session-topics" -type f -mtime +7 -not -name '.*' -delete 2>/dev/null || true
     find "$HOME/.claude/session-topics" -type f -name '.active-session-*' -mtime +7 -delete 2>/dev/null || true
     rmdir "$CLEANUP_LOCK" 2>/dev/null

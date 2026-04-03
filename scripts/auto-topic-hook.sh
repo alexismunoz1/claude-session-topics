@@ -4,31 +4,37 @@ set -euo pipefail
 # ── Stop hook: set session topic from first user message
 # Receives Stop event JSON on stdin: {"session_id": "...", "transcript_path": "..."}
 
+# ── Load common functions (with fallback)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$SCRIPT_DIR/../lib/common.sh" ]; then
+  source "$SCRIPT_DIR/../lib/common.sh"
+else
+  # Fallback: define minimal required functions locally
+  find_claude_pid() {
+    local pid=$$
+    while [ "$pid" != "1" ] && [ -n "$pid" ]; do
+      local parent
+      parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+      [ -z "$parent" ] && break
+      local comm
+      comm=$(ps -o comm= -p "$parent" 2>/dev/null)
+      case "$comm" in
+        *claude*|*Claude*) echo "$parent"; return 0 ;;
+      esac
+      pid=$parent
+    done
+    echo ""
+  }
+fi
+
 input=$(cat)
 
-# ── Bump this when extract_topic.py changes → invalidates all cached topics
+# ── Get HOOK_VERSION from extract_topic.py
 HOOK_VERSION=$(python3 -c "
 import sys; sys.path.insert(0, '$SCRIPT_DIR')
 from extract_topic import VERSION; print(VERSION)
 " 2>/dev/null || echo "0")
 
-# ── Find the ancestor claude process PID (stable across all contexts)
-find_claude_pid() {
-  local pid=$$
-  while [ "$pid" != "1" ] && [ -n "$pid" ]; do
-    local parent
-    parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
-    [ -z "$parent" ] && break
-    local comm
-    comm=$(ps -o comm= -p "$parent" 2>/dev/null)
-    case "$comm" in
-      *claude*|*Claude*) echo "$parent"; return 0 ;;
-    esac
-    pid=$parent
-  done
-  echo ""
-}
 CLAUDE_PID=$(find_claude_pid)
 
 # ── Parse JSON fields
@@ -42,11 +48,19 @@ except:
 " 2>/dev/null || echo " ")"
 
 # ── Validate session ID
-SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
+if type sanitize_session_id &>/dev/null; then
+  SESSION_ID=$(sanitize_session_id "$SESSION_ID")
+else
+  SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
+fi
 [ -z "$SESSION_ID" ] && exit 0
 
 # ── Ensure topics directory + write active session marker
-mkdir -p "$HOME/.claude/session-topics"
+if type ensure_topics_dir &>/dev/null; then
+  ensure_topics_dir
+else
+  mkdir -p "$HOME/.claude/session-topics"
+fi
 [ -n "$CLAUDE_PID" ] && echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID"
 
 # ── Version-based cache invalidation: if hook version changed, wipe stale topics

@@ -71,7 +71,11 @@ STOP_WORDS = {
     'en', 'con', 'por', 'para', 'al', 'es', 'son', 'ser', 'estar',
     'este', 'esta', 'estos', 'estas', 'ese', 'esa', 'esos', 'esas',
     'que', 'como', 'mas', 'pero', 'si', 'ya', 'se', 'le', 'lo',
-    'nos', 'les', 'su', 'sus', 'mi', 'mis', 'tu', 'tus', 'y', 'o', 'ni',
+    'nos', 'les', 'su', 'sus', 'mi', 'mis', 'tu', 'tus',     'y', 'o', 'ni',
+    # Image/media references that should be ignored
+    'image', 'images', 'imagen', 'imagenes', 'picture', 'pictures',
+    'photo', 'photos', 'foto', 'fotos', 'screenshot', 'screenshots',
+    'captura', 'capturas', 'png', 'jpg', 'jpeg', 'gif', 'svg',
 }
 
 ACTION_VERBS = {
@@ -91,6 +95,8 @@ ACTION_VERBS = {
 
 # Compound technical terms that should be kept together as n-grams
 COMPOUND_TERMS = {
+    # File extensions
+    'json', 'yaml', 'yml', 'xml', 'csv', 'html', 'css', 'scss', 'sass',
     # UI Components
     'modal', 'dialog', 'popup', 'tooltip', 'dropdown', 'accordion',
     'carousel', 'slider', 'navbar', 'sidebar', 'footer', 'header',
@@ -474,18 +480,48 @@ def extract_topic(text):
     # ── 8. Post-process: limit to 2-4 words, capitalize, max 50 chars
     # Ensure we have at least 2 words for better context
     if len(words) == 1:
-        # Try to add context from compound terms or other keywords
+        # Check if we already have an English technical term
+        has_english_tech_term = (
+            len(words) >= 1 and 
+            not _is_spanish(words[0]) and
+            (_strip_accents(words[0].lower()) in ACTION_VERBS or
+             _strip_accents(words[0].lower()) in COMPOUND_TERMS or
+             len(words[0]) >= 4)
+        )
+        
+        # Only add additional words if they are English technical terms
         for w in text.split():
-            clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', w)
-            if not clean or len(clean) < 2:
-                continue
-            cl = _strip_accents(clean.lower())
-            if cl in STOP_WORDS or _is_spanish(clean):
-                continue
-            if clean.lower() != words[0].lower():
-                if cl in COMPOUND_TERMS or len(clean) >= 4:
-                    words.append(clean)
-                    break
+            if len(words) >= 2:
+                break
+            
+            # Handle file names with extensions (e.g., "package.json")
+            if '.' in w and not w.startswith('.') and not w.endswith('.'):
+                parts = w.lower().split('.')
+                for part in parts:
+                    if len(part) < 2:
+                        continue
+                    # Skip Spanish words when we already have English terms
+                    if has_english_tech_term and _is_spanish(part):
+                        continue
+                    if part not in [x.lower() for x in words]:
+                        words.append(part.capitalize())
+                        break
+            else:
+                clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', w)
+                if not clean or len(clean) < 2:
+                    continue
+                
+                # Skip Spanish words entirely - only accept English technical terms
+                if _is_spanish(clean):
+                    continue
+                    
+                cl = _strip_accents(clean.lower())
+                if cl in STOP_WORDS:
+                    continue
+                if clean.lower() != words[0].lower():
+                    # Only add if it's a technical term (action verb or compound term)
+                    if cl in ACTION_VERBS or cl in COMPOUND_TERMS:
+                        words.append(clean)
     
     # Limit to 1-4 words (allow single word if it's a strong tech term)
     words = words[:4]
