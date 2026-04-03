@@ -145,7 +145,7 @@ jobs:
     - name: Install dependencies
       run: |
         brew install jq bats-core
-        pip3 install yake langdetect
+        pip3 install --break-system-packages yake langdetect
     
     - name: Run tests
       run: |
