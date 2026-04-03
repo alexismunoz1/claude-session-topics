@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.2] - 2025-04-03
+
 ### Added
-- Comprehensive test suite (82 tests total)
+- ESLint v9 configuration with flat config (`eslint.config.js`)
+- ESLint dependency for code quality enforcement
+
+### Changed
+- Cleaned up orphaned files and directories from repository
+- Improved `.gitignore` to exclude build artifacts (*.tgz)
+
+## [2.8.0] - 2025-03-30
   - 41 Python tests for topic extraction
   - 6 shell integration tests (Bats)
   - 35 Node.js installer tests (Vitest)
