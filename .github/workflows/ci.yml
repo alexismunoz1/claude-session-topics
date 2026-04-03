@@ -41,7 +41,8 @@ jobs:
     
     - name: Install Bats
       run: |
-        npm install -g bats
+        sudo apt-get update
+        sudo apt-get install -y bats
     
     - name: Install dependencies
       run: |
