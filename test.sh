@@ -29,10 +29,10 @@ run_test_suite() {
     
     if eval "$cmd"; then
         echo -e "${GREEN}✓ $name PASSED${NC}"
-        ((PASSED++))
+        ((PASSED++)) || true
     else
         echo -e "${RED}✗ $name FAILED${NC}"
-        ((FAILED++))
+        ((FAILED++)) || true
     fi
     echo ""
 }
