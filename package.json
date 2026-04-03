@@ -5,6 +5,20 @@
   "bin": {
     "claude-session-topics": "bin/install.js"
   },
+  "scripts": {
+    "test": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:installer": "vitest run tests/installer/",
+    "test:watch": "vitest",
+    "version:check": "bash scripts/check-versions.sh",
+    "version:sync": "node scripts/sync-versions.js",
+    "lint": "shellcheck scripts/*.sh --severity=warning && npx eslint bin/install.js",
+    "diagnose": "bash scripts/diagnose.sh"
+  },
+  "devDependencies": {
+    "@vitest/ui": "^1.6.1",
+    "vitest": "^1.6.1"
+  },
   "files": [
     "bin/",
     "hooks/",

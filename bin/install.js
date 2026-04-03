@@ -49,9 +49,9 @@ const SRC_SKILLS = path.join(__dirname, '..', 'skills');
 
 // ─── The statusline command that settings.json will reference ────────────────
 
-const STATUSLINE_CMD = `bash "$HOME/.claude/session-topics/statusline.sh"`;
-const WRAPPER_CMD = `bash "$HOME/.claude/session-topics/wrapper-statusline.sh"`;
-const STOP_HOOK_CMD = `bash "$HOME/.claude/session-topics/auto-topic-hook.sh" || true`;
+const STATUSLINE_CMD = `bash "/Users/mac/.claude/session-topics/statusline.sh"`;
+const WRAPPER_CMD = `bash "/Users/mac/.claude/session-topics/wrapper-statusline.sh"`;
+const STOP_HOOK_CMD = `bash "/Users/mac/.claude/session-topics/auto-topic-hook.sh" || true`;
 
 // ─── Permission rule ─────────────────────────────────────────────────────────
 
