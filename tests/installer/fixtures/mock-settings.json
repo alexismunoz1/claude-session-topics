@@ -1,0 +1,23 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "echo 'existing-statusline'"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(*some-other-rule*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'existing-hook'"
+          }
+        ]
+      }
+    ]
+  }
+}

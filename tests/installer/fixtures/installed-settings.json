@@ -1,0 +1,23 @@
+{
+  "statusLine": {
+    "type": "command", 
+    "command": "bash \"$HOME/.claude/session-topics/statusline.sh\""
+  },
+  "permissions": {
+    "allow": [
+      "Bash(*/.claude/session-topics/*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.claude/session-topics/auto-topic-hook.sh\" || true"
+          }
+        ]
+      }
+    ]
+  }
+}

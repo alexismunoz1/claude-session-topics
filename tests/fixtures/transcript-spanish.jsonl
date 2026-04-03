@@ -1,0 +1,4 @@
+{"role": "user", "content": "Corrige el error de autenticación en NeonDB"}
+{"role": "assistant", "content": "Te ayudaré a corregir el error de autenticación. Primero déjame revisar los logs para entender qué está pasando."}
+{"role": "user", "content": "Los logs muestran 'JWT token expired'"}
+{"role": "assistant", "content": "Veo el problema. El token JWT ha expirado. Necesitas refrescar el token o revisar la configuración de expiración en tu middleware de autenticación."}
