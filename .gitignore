@@ -17,6 +17,6 @@ coverage/
 *.lcov
 .nyc_output/
 
-# Vitest
-*.timestamp-*
+# Build artifacts
+*.tgz
 

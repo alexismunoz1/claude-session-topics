@@ -409,13 +409,13 @@ function install(color) {
         yakeInstalled = true;
     } catch {
         info('YAKE not found, attempting automatic installation...');
-        
+
         const installCommands = [
             { cmd: 'pip3 install yake --user', desc: 'with --user flag' },
             { cmd: 'pip3 install yake --break-system-packages --user', desc: 'with --break-system-packages' },
-            { cmd: 'python3 -m pip install yake --user', desc: 'using python3 -m pip' }
+            { cmd: 'python3 -m pip install yake --user', desc: 'using python3 -m pip' },
         ];
-        
+
         for (const { cmd, desc } of installCommands) {
             try {
                 execSync(cmd, { stdio: 'pipe' });
@@ -436,13 +436,13 @@ function install(color) {
         langdetectInstalled = true;
     } catch {
         info('langdetect not found, attempting automatic installation...');
-        
+
         const installCommands = [
             { cmd: 'pip3 install langdetect --user', desc: 'with --user flag' },
             { cmd: 'pip3 install langdetect --break-system-packages --user', desc: 'with --break-system-packages' },
-            { cmd: 'python3 -m pip install langdetect --user', desc: 'using python3 -m pip' }
+            { cmd: 'python3 -m pip install langdetect --user', desc: 'using python3 -m pip' },
         ];
-        
+
         for (const { cmd, desc } of installCommands) {
             try {
                 execSync(cmd, { stdio: 'pipe' });
@@ -454,7 +454,7 @@ function install(color) {
             }
         }
     }
-    
+
     if (!yakeInstalled || !langdetectInstalled) {
         warn('Some Python dependencies could not be installed automatically');
         console.log(`\n  ${BOLD}To install manually:${RESET}`);
@@ -563,7 +563,7 @@ function uninstall() {
         const before = settings.permissions.allow.length;
         const OLD_PERMISSION_RULE = 'Bash(*session-topics*)';
         settings.permissions.allow = settings.permissions.allow.filter(
-            (rule) => rule !== PERMISSION_RULE && rule !== OLD_PERMISSION_RULE
+            (rule) => rule !== PERMISSION_RULE && rule !== OLD_PERMISSION_RULE,
         );
         if (settings.permissions.allow.length < before) {
             writeSettings(settings);
@@ -582,7 +582,7 @@ function uninstall() {
         settings.hooks.Stop = settings.hooks.Stop.filter((entry) => {
             if (entry && Array.isArray(entry.hooks)) {
                 return !entry.hooks.some(
-                    (h) => h && typeof h.command === 'string' && h.command.includes('session-topics')
+                    (h) => h && typeof h.command === 'string' && h.command.includes('session-topics'),
                 );
             }
             return true;
@@ -650,7 +650,7 @@ if (require.main === module) {
 
 // Export functions for testing
 module.exports = {
-  validateColor,
-  parseArgs,
-  determineStatusLineCase
+    validateColor,
+    parseArgs,
+    determineStatusLineCase,
 };
