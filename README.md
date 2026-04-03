@@ -94,6 +94,65 @@ Statusline script reads the topic file → displays: ◆ Topic
 
 The Stop hook runs after each model response and uses YAKE (Yet Another Keyword Extractor) to extract the initial topic from the transcript. YAKE is a lightweight, unsupervised keyword extraction algorithm that provides better results than simple bag-of-words approaches. If YAKE is not available, it falls back to a legacy heuristic method. On subsequent messages, the auto-topic skill handles topic updates when the conversation shifts. The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
 
+## Troubleshooting
+
+### Run Diagnostics
+
+Check your installation:
+
+```bash
+~/.claude/session-topics/diagnose.sh
+```
+
+Or from the project directory:
+```bash
+./scripts/diagnose.sh
+```
+
+### Enable Debug Logging
+
+Set the verbose environment variable:
+
+```bash
+export CLAUDE_SESSION_TOPICS_VERBOSE=1
+# Then run your claude commands
+```
+
+Or use the --verbose flag with the installer:
+
+```bash
+npx @alexismunozdev/claude-session-topics --verbose
+```
+
+### View Debug Logs
+
+Debug logs are stored in:
+
+```bash
+cat ~/.claude/session-topics/debug.log
+```
+
+Log levels (set via `CLAUDE_SESSION_TOPICS_LOG_LEVEL`):
+- `0` = DEBUG (most verbose)
+- `1` = INFO (default)
+- `2` = WARN
+- `3` = ERROR (least verbose)
+
+### Common Issues
+
+**Topic not appearing in statusline:**
+1. Check that the hook is registered: `cat ~/.claude/settings.json | jq '.hooks'`
+2. Verify permissions: `cat ~/.claude/settings.json | jq '.permissions'`
+3. Check debug logs for errors
+
+**YAKE not working (reduced functionality):**
+1. Install manually: `pip3 install yake langdetect`
+2. Or with --break-system-packages: `pip3 install yake langdetect --break-system-packages --user`
+
+**Permission denied errors:**
+1. Ensure scripts are executable: `chmod +x ~/.claude/session-topics/*.sh`
+2. Check that Bash permission is in settings.json
+
 ## Uninstall
 
 ```bash
