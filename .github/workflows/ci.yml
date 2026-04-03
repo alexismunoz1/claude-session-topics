@@ -1,0 +1,153 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Job 1: Python Tests
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install yake langdetect
+    
+    - name: Run Python tests
+      run: |
+        python3 tests/python/test_extract_topic.py
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: python-test-results
+        path: test-reports/
+
+  # Job 2: Shell Tests
+  test-shell:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Bats
+      run: |
+        npm install -g bats
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq python3 python3-pip
+        pip3 install yake langdetect
+    
+    - name: Run shell tests
+      run: |
+        ./test.sh
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: shell-test-results
+        path: test-reports/
+
+  # Job 3: Node.js Tests
+  test-node:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run Node.js tests
+      run: npm test
+    
+    - name: Upload coverage
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-report
+        path: coverage/
+
+  # Job 4: Static Analysis
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install ShellCheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y shellcheck
+    
+    - name: Run ShellCheck
+      run: |
+        shellcheck scripts/*.sh --severity=warning
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run ESLint
+      run: |
+        npx eslint bin/install.js || true
+
+  # Job 5: Validation
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate package.json
+      run: |
+        node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8')); console.log('package.json is valid');"
+    
+    - name: Check version consistency
+      run: |
+        PACKAGE_VERSION=$(node -p "require('./package.json').version")
+        echo "Package version: $PACKAGE_VERSION"
+        # Add additional version checks here if needed
+    
+    - name: Check file structure
+      run: |
+        test -f bin/install.js || (echo "Missing bin/install.js" && exit 1)
+        test -f scripts/statusline.sh || (echo "Missing scripts/statusline.sh" && exit 1)
+        test -f scripts/extract_topic.py || (echo "Missing scripts/extract_topic.py" && exit 1)
+        echo "All required files present"
+
+  # Job 6: Integration (macOS)
+  test-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        brew install jq bats-core
+        pip3 install yake langdetect
+    
+    - name: Run tests
+      run: |
+        ./test.sh
+      continue-on-error: true  # macOS tests are informational

@@ -6,3 +6,17 @@ node_modules/
 .idea/
 .vscode/
 __pycache__/
+
+# Test artifacts
+test-reports/
+*.log
+.bats/
+tmp/
+# Coverage reports
+coverage/
+*.lcov
+.nyc_output/
+
+# Vitest
+*.timestamp-*
+
