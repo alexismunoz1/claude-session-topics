@@ -1,20 +1,32 @@
 #!/bin/bash
 # Common utility functions for claude-session-topics scripts
 
-# ── Find the ancestor claude process PID (stable across all contexts)
+# ── Debug logging (enable with CLAUDE_SESSION_TOPICS_DEBUG=1)
+debug_log() {
+  if [ "${CLAUDE_SESSION_TOPICS_DEBUG:-0}" = "1" ]; then
+    echo "[$(date '+%H:%M:%S')] $*" >> "$HOME/.claude/session-topics/debug.log" 2>/dev/null || true
+  fi
+}
+
+# ── Find the ancestor claude process PID (best-effort, not required)
+# NOTE: This is kept for backward compatibility but is NOT the primary
+# session identification mechanism. Use session_id from JSON input instead.
 find_claude_pid() {
   local pid=$$
+  debug_log "find_claude_pid: starting walk from PID $$"
   while [ "$pid" != "1" ] && [ -n "$pid" ]; do
     local parent
     parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
     [ -z "$parent" ] && break
     local comm
     comm=$(ps -o comm= -p "$parent" 2>/dev/null)
+    debug_log "find_claude_pid: pid=$pid parent=$parent comm=$comm"
     case "$comm" in
-      *claude*|*Claude*) echo "$parent"; return 0 ;;
+      *claude*|*Claude*) debug_log "find_claude_pid: found $parent"; echo "$parent"; return 0 ;;
     esac
     pid=$parent
   done
+  debug_log "find_claude_pid: no claude ancestor found"
   echo ""
 }
 

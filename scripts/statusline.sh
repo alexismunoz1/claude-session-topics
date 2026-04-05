@@ -3,55 +3,43 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# ── Load common functions if available (for debug_log)
+if [ -f "$SCRIPT_DIR/../lib/common.sh" ]; then
+  source "$SCRIPT_DIR/../lib/common.sh"
+elif [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
+  source "$SCRIPT_DIR/lib/common.sh"
+else
+  debug_log() { :; }
+fi
+
 input=$(cat)
 
-# ── Find the ancestor claude process PID (stable across all contexts)
-find_claude_pid() {
-  local pid=$$
-  while [ "$pid" != "1" ] && [ -n "$pid" ]; do
-    local parent
-    parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
-    [ -z "$parent" ] && break
-    local comm
-    comm=$(ps -o comm= -p "$parent" 2>/dev/null)
-    case "$comm" in
-      *claude*|*Claude*) echo "$parent"; return 0 ;;
-    esac
-    pid=$parent
-  done
-  echo ""
-}
-CLAUDE_PID=$(find_claude_pid)
-
-# ── Parse JSON
+# ── Parse JSON — session_id is the primary identifier (no PID needed)
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
 SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
 TRANSCRIPT_PATH=$(echo "$input" | jq -r '.transcript_path // ""')
 if [ -z "$SESSION_ID" ]; then
-    # No valid session ID — skip session-dependent logic, just run original statusline
+    debug_log "statusline: no session_id, exiting"
     exit 0
 fi
 
-# ── Write active session file (keyed by claude process PID for cross-context reliability)
-if [ -n "$SESSION_ID" ] && [ -n "$CLAUDE_PID" ]; then
-    mkdir -p "$HOME/.claude/session-topics"
-    echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID"
+debug_log "statusline: session_id=$SESSION_ID"
+
+# ── Topic lookup: use session_id directly (no PID-based lookup needed)
+TOPIC=""
+TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
+if [ -f "$TOPIC_FILE" ]; then
+    TOPIC=$(cat "$TOPIC_FILE" 2>/dev/null || echo "")
+    debug_log "statusline: found topic '$TOPIC' from file"
 fi
 
-# ── Topic
-TOPIC=""
-if [ -n "$SESSION_ID" ]; then
-    TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
-    if [ -f "$TOPIC_FILE" ]; then
-        TOPIC=$(cat "$TOPIC_FILE" 2>/dev/null || echo "")
-    fi
-fi
 # If topic file doesn't exist, try to extract from transcript directly
 if [ -z "$TOPIC" ] && [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
     TOPIC=$(python3 "$SCRIPT_DIR/extract_topic.py" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
-    if [ -n "$TOPIC" ] && [ -n "$SESSION_ID" ]; then
+    if [ -n "$TOPIC" ]; then
         mkdir -p "$HOME/.claude/session-topics"
         echo "$TOPIC" > "$TOPIC_FILE"
+        debug_log "statusline: extracted topic '$TOPIC' from transcript"
     fi
 fi
 if [ -z "$TOPIC" ] && [ -n "${CLAUDE_SESSION_TOPICS_TOPIC:-}" ]; then

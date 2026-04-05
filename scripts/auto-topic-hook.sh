@@ -8,8 +8,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -f "$SCRIPT_DIR/../lib/common.sh" ]; then
   source "$SCRIPT_DIR/../lib/common.sh"
+elif [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
+  source "$SCRIPT_DIR/lib/common.sh"
 else
   # Fallback: define minimal required functions locally
+  debug_log() { :; }
   find_claude_pid() {
     local pid=$$
     while [ "$pid" != "1" ] && [ -n "$pid" ]; do
@@ -35,9 +38,7 @@ import sys; sys.path.insert(0, '$SCRIPT_DIR')
 from extract_topic import VERSION; print(VERSION)
 " 2>/dev/null || echo "0")
 
-CLAUDE_PID=$(find_claude_pid)
-
-# ── Parse JSON fields
+# ── Parse JSON fields (session_id is the primary identifier)
 read -r SESSION_ID TRANSCRIPT_PATH <<< "$(echo "$input" | python3 -c "
 import sys, json
 try:
@@ -53,15 +54,33 @@ if type sanitize_session_id &>/dev/null; then
 else
   SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
 fi
-[ -z "$SESSION_ID" ] && exit 0
+if [ -z "$SESSION_ID" ]; then
+  debug_log "hook: no session_id in input, exiting"
+  exit 0
+fi
 
-# ── Ensure topics directory + write active session marker
+debug_log "hook: session_id=$SESSION_ID"
+
+# ── Ensure topics directory
 if type ensure_topics_dir &>/dev/null; then
   ensure_topics_dir
 else
   mkdir -p "$HOME/.claude/session-topics"
 fi
-[ -n "$CLAUDE_PID" ] && echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID"
+
+# ── Write active session marker keyed by session_id (race-condition-safe)
+# This is the primary mechanism — works regardless of PID detection.
+echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-id-$SESSION_ID"
+debug_log "hook: wrote .active-session-id-$SESSION_ID"
+
+# ── Also write PID-based marker for backward compatibility (best-effort)
+CLAUDE_PID=$(find_claude_pid)
+if [ -n "$CLAUDE_PID" ]; then
+  echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID"
+  debug_log "hook: wrote .active-session-$CLAUDE_PID (compat)"
+else
+  debug_log "hook: PID detection failed, session_id marker is sufficient"
+fi
 
 # ── Version-based cache invalidation: if hook version changed, wipe stale topics
 VERSION_FILE="$HOME/.claude/session-topics/.hook-version"
@@ -83,7 +102,10 @@ TOPIC=$(python3 "$SCRIPT_DIR/extract_topic.py" "$TRANSCRIPT_PATH" 2>/dev/null ||
 if [ -n "$TOPIC" ]; then
     # Sanitize: keep letters (incl. accented), digits, spaces, basic punctuation
     TOPIC=$(printf '%s' "$TOPIC" | sed "s/[^a-zA-Z0-9àáâãäåèéêëìíîïòóôõöùúûüýÿñçÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝÑÇ .,:!?'-]//g" | cut -c1-50)
-    [ -n "$TOPIC" ] && printf '%s\n' "$TOPIC" > "$TOPIC_FILE"
+    if [ -n "$TOPIC" ]; then
+      printf '%s\n' "$TOPIC" > "$TOPIC_FILE"
+      debug_log "hook: wrote topic '$TOPIC' to $TOPIC_FILE"
+    fi
 fi
 
 exit 0

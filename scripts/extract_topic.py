@@ -246,7 +246,11 @@ def _is_primarily_spanish(text):
 
 
 def extract_user_text(transcript_path):
-    """Read JSONL transcript and return the first user message text."""
+    """Read JSONL transcript and return the first non-empty user message text.
+
+    Skips messages that become empty after XML tag stripping (e.g.,
+    messages containing only <local-command-caveat> wrappers).
+    """
     try:
         with open(transcript_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -260,7 +264,11 @@ def extract_user_text(transcript_path):
 
                 text = _get_user_text(obj)
                 if text and text.strip():
-                    return text.strip()
+                    # Strip XML/HTML tags to check if meaningful content remains
+                    stripped = re.sub(r'<(\w[\w-]*)(?:\s[^>]*)?>.*?</\1>', '', text, flags=re.DOTALL)
+                    stripped = re.sub(r'<[^>]*>', '', stripped).strip()
+                    if stripped:
+                        return text.strip()
     except Exception:
         pass
     return ''
@@ -386,24 +394,20 @@ def extract_topic(text):
         text = re.sub(p, '', text, flags=re.IGNORECASE).strip()
         text = re.sub(r'^[,;:\s]+', '', text).strip()
 
-    # ── 6. Language detection: reject Spanish texts
-    # This enforces English-only topics. If text is Spanish, return empty
-    # and let the auto-topic skill handle it via LLM.
-    if _is_primarily_spanish(text):
-        return ''
+    # ── 6. Language detection: select YAKE language parameter
+    # Detect if text is primarily Spanish to configure YAKE accordingly.
+    # Spanish text uses lan="es" for better keyword extraction.
+    yake_lang = "es" if _is_primarily_spanish(text) else "en"
 
     # ── 7. Smart topic extraction with structured composition
     # Goal: Create topics like "Fix Certificate Modal Desktop Layout"
     # Structure: [ACTION VERB] + [MAIN OBJECT] + [CONTEXT/DETAIL]
-    # NOTE: Forced to English only (lan="en") to avoid Spanish words in topics
     words = []
-    
+
     if YAKE_AVAILABLE and len(text.split()) >= 3:
         try:
-            # Force YAKE to use English only - rejects Spanish-heavy texts naturally
-            # This is intentional: we want English-only topics
             kw_extractor = yake.KeywordExtractor(
-                lan="en",  # Force English, ignore Spanish
+                lan=yake_lang,
                 n=3,
                 dedupLim=0.9,
                 top=10,
