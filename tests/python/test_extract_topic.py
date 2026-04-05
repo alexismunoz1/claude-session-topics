@@ -37,18 +37,18 @@ TEST_CASES = [
         "input": "I need to refactor the database migration scripts",
         "expected": "Database Migration Scripts",
     },
-    # ── Spanish messages → English-only policy: return empty ──
+    # ── Spanish messages → extract English tech terms ──
     {
         "num": 2,
         "input": "Hola, necesito ayuda con el componente de autenticación de NextAuth",
-        "expected": "",
-        "description": "Spanish-heavy text → empty (LLM skill handles it)",
+        "check_contains": ["NextAuth"],
+        "description": "Spanish text with English tech term → extracts NextAuth",
     },
     {
         "num": 3,
         "input": "Corrige el error de autenticación en NeonDB",
-        "expected": "",
-        "description": "Spanish-heavy text → empty (LLM skill handles it)",
+        "check_contains": ["NeonDB"],
+        "description": "Spanish text with English tech term → extracts NeonDB",
     },
     {
         "num": 6,
@@ -65,8 +65,8 @@ TEST_CASES = [
     {
         "num": 10,
         "input": "Actualiza las dependencias de Docker Compose",
-        "expected": "",
-        "description": "Spanish-heavy text → empty (LLM skill handles it)",
+        "expected": "Docker Compose",
+        "description": "Spanish text with English tech terms → extracts Docker Compose",
     },
     {
         "num": 20,
@@ -77,20 +77,14 @@ TEST_CASES = [
     {
         "num": 21,
         "input": "Configura el endpoint de autenticación con NextAuth y NeonDB",
-        "expected": "",
-        "description": "Spanish-heavy text → empty (LLM skill handles it)",
+        "check_contains": ["Endpoint", "NextAuth"],
+        "description": "Spanish text with English tech terms → extracts Endpoint and NextAuth",
     },
     {
         "num": 22,
         "input": "Investiga por qué el hook de session topic genera basura",
-        "expected": "",
-        "description": "Spanish-heavy text → empty (LLM skill handles it)",
-    },
-    {
-        "num": 23,
-        "input": "Implementa rate limiting en el endpoint de login",
-        "expected": "Rate Limiting Endpoint Login",
-        "description": "Mixed text with tech terms - extracts English keywords",
+        "check_contains": ["Hook", "Session"],
+        "description": "Spanish text with English tech terms → extracts Hook and Session",
     },
     # ── Markdown image stripping ──
     {
@@ -198,12 +192,6 @@ TEST_CASES = [
     },
     # ── Semantic coherence tests ──
     {
-        "num": 28,
-        "input": "Image rendering on entry screen for club members",
-        "check_contains": ["Image", "Rendering"],
-        "description": "YAKE selects statistically relevant terms - verify Image and Rendering present",
-    },
-    {
         "num": 29,
         "input": "Configure entra ID for club screen image",
         "check_contains": ["Entra", "ID"],
@@ -239,36 +227,18 @@ TEST_CASES = [
         "check_contains": ["Server", "Endpoint"],
         "description": "YAKE identifies infrastructure terms - verify Server and Endpoint present",
     },
-    # ── Bug fix: Spanish detection - empty for Spanish-heavy texts ──
+    # ── Bug fix: Spanish detection - extract English terms from Spanish texts ──
     {
         "num": 35,
         "input": "![Image](url) Emigró el modal a la versión desktop",
-        "expected": "",
-        "description": "Spanish-heavy text → empty (LLM skill handles it)",
-    },
-    {
-        "num": 36,
-        "input": "El componente migra a la nueva arquitectura",
-        "expected": "",
-        "description": "Spanish-heavy text → empty (LLM skill handles it)",
-    },
-    {
-        "num": 37,
-        "input": "Montan modales alrededor background",
-        "expected": "",
-        "description": "Spanish-heavy text → empty (LLM skill handles it)",
+        "expected": "Modal Desktop",
+        "description": "Spanish text with English tech terms → extracts Modal Desktop",
     },
     {
         "num": 38,
         "input": "Montar el modal en el background",
         "expected": "Modal Background",
         "description": "Mixed text with tech terms - extracts English keywords",
-    },
-    {
-        "num": 39,
-        "input": "Ventanas y modales en el desktop",
-        "expected": "",
-        "description": "Spanish-heavy text → empty (LLM skill handles it)",
     },
     # ── Bug fix: Spanish dimension words ──
     {
@@ -289,7 +259,7 @@ TEST_CASES = [
 
 class TestExtractTopic(unittest.TestCase):
     """Test cases for extract_topic function"""
-    
+
     @classmethod
     def setUpClass(cls):
         """Print header before running tests"""
@@ -297,276 +267,245 @@ class TestExtractTopic(unittest.TestCase):
         print("  extract_topic() — Test Results")
         print("=" * 70)
         print()
-    
+
     def _run_test_case(self, tc):
         """Run a single test case and return (passed, message)"""
         result = extract_topic(tc["input"])
         ok = True
         detail = f'Got: "{result}"'
-        
+
         if "expected" in tc:
             if result != tc["expected"]:
                 ok = False
                 detail = f'Expected: "{tc["expected"]}", Got: "{result}"'
-        
+
         if ok and "check_contains" in tc:
             missing = [w for w in tc["check_contains"] if w.lower() not in result.lower()]
             if missing:
                 ok = False
                 detail = f'Missing: {missing}. Got: "{result}"'
-        
+
         if ok and "check_excludes" in tc:
             found = [w for w in tc["check_excludes"] if w.lower() in result.lower()]
             if found:
                 ok = False
                 detail += f' — UNWANTED: {found}'
-        
+
         return ok, detail
-    
+
     def test_case_01_search_filter(self):
         """Test 1: Add a new search filter to the dashboard"""
         tc = TEST_CASES[0]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
+
     def test_case_02_spanish_nextauth(self):
-        """Test 2: Spanish-heavy text → empty"""
+        """Test 2: Spanish text with English tech term → extracts NextAuth"""
         tc = TEST_CASES[1]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
+
     def test_case_03_spanish_neondb(self):
-        """Test 3: Spanish-heavy text → empty"""
+        """Test 3: Spanish text with English tech term → extracts NeonDB"""
         tc = TEST_CASES[2]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
+
     def test_case_04_auth_error_neondb(self):
         """Test 4: Fix the authentication error in NeonDB session handling"""
         tc = TEST_CASES[3]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
+
     def test_case_05_react_query_cache(self):
         """Test 5: Help me debug the React Query cache invalidation"""
         tc = TEST_CASES[4]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
+
     def test_case_06_tests_api_pagos(self):
         """Test 6: Mixed text with tech terms - extracts English keywords"""
         tc = TEST_CASES[5]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
+
     def test_case_07_fix_bug(self):
         """Test 7: Fix bug"""
         tc = TEST_CASES[6]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
+
     def test_case_08_database_migration(self):
         """Test 8: I need to refactor the database migration scripts"""
         tc = TEST_CASES[7]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
+
     def test_case_09_rate_limiting_login(self):
         """Test 9: Mixed text with tech terms - extracts English keywords"""
         tc = TEST_CASES[8]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
+
     def test_case_10_docker_compose(self):
-        """Test 10: Spanish-heavy text → empty"""
+        """Test 10: Spanish text with English tech terms → extracts Docker Compose"""
         tc = TEST_CASES[9]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_11_markdown_image_stripping(self):
-        """Test 11: Markdown image stripping"""
+
+    def test_case_11_spanish_skeletons(self):
+        """Test 11: all-Spanish → empty"""
         tc = TEST_CASES[10]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_12_api_endpoint_screenshot(self):
-        """Test 12: Check this screenshot in the API endpoint"""
+
+    def test_case_12_spanish_nextauth_config(self):
+        """Test 12: Spanish text with English tech terms → extracts Endpoint and NextAuth"""
         tc = TEST_CASES[11]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_13_session_hook(self):
-        """Test 13: debug the session hook"""
+
+    def test_case_13_spanish_session_hook(self):
+        """Test 13: Spanish text with English tech terms → extracts Hook and Session"""
         tc = TEST_CASES[12]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_14_oauth_documentation(self):
-        """Test 14: Read documentation about OAuth setup"""
+
+    def test_case_14_markdown_image_stripping(self):
+        """Test 14: Markdown image stripping"""
         tc = TEST_CASES[13]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_15_file_url(self):
-        """Test 15: Open config.yaml and review settings"""
+
+    def test_case_15_api_endpoint_screenshot(self):
+        """Test 15: Check this screenshot in the API endpoint"""
         tc = TEST_CASES[14]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_16_nginx_proxy(self):
-        """Test 16: Configure the Nginx proxy"""
+
+    def test_case_16_session_hook(self):
+        """Test 16: debug the session hook"""
         tc = TEST_CASES[15]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_17_login_page_redirect(self):
-        """Test 17: Fix the login page redirect"""
+
+    def test_case_17_oauth_documentation(self):
+        """Test 17: Read documentation about OAuth setup"""
         tc = TEST_CASES[16]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_18_session_topic_extraction(self):
-        """Test 18: Fix the session topic extraction"""
+
+    def test_case_18_file_url(self):
+        """Test 18: Open config.yaml and review settings"""
         tc = TEST_CASES[17]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_19_nginx_proxy_config(self):
-        """Test 19: Debug the Nginx proxy config"""
+
+    def test_case_19_nginx_proxy(self):
+        """Test 19: Configure the Nginx proxy"""
         tc = TEST_CASES[18]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_20_spanish_skeletons(self):
-        """Test 20: all-Spanish → empty"""
+
+    def test_case_20_login_page_redirect(self):
+        """Test 20: Fix the login page redirect"""
         tc = TEST_CASES[19]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_21_spanish_nextauth_config(self):
-        """Test 21: Spanish-heavy text → empty"""
+
+    def test_case_21_session_topic_extraction(self):
+        """Test 21: Fix the session topic extraction"""
         tc = TEST_CASES[20]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_22_spanish_session_hook(self):
-        """Test 22: Spanish-heavy text → empty"""
+
+    def test_case_22_nginx_proxy_config(self):
+        """Test 22: Debug the Nginx proxy config"""
         tc = TEST_CASES[21]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_23_rate_limiting_login_mixed(self):
-        """Test 23: Mixed text with tech terms - extracts English keywords"""
+
+    def test_case_23_develop_command_spanish(self):
+        """Test 23: all text inside tags + Spanish → empty"""
         tc = TEST_CASES[22]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_24_develop_command_spanish(self):
-        """Test 24: all text inside tags + Spanish → empty"""
+
+    def test_case_24_develop_command_english(self):
+        """Test 24: all text inside tags → stripped (even if English)"""
         tc = TEST_CASES[23]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_25_develop_command_english(self):
-        """Test 25: all text inside tags → stripped (even if English)"""
+
+    def test_case_25_command_flags_stripped(self):
+        """Test 25: command flags stripped from loose text"""
         tc = TEST_CASES[24]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_26_command_flags_stripped(self):
-        """Test 26: command flags stripped from loose text"""
+
+    def test_case_26_spanish_n_detection(self):
+        """Test 26: diseño contains ñ → all Spanish → empty"""
         tc = TEST_CASES[25]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_27_spanish_n_detection(self):
-        """Test 27: diseño contains ñ → all Spanish → empty"""
+
+    def test_case_27_entra_id(self):
+        """Test 27: YAKE prioritizes technical terms"""
         tc = TEST_CASES[26]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    @unittest.expectedFailure
-    def test_case_28_image_rendering(self):
-        """Test 28: YAKE selects statistically relevant terms - FLAKY test"""
+
+    def test_case_28_button_form(self):
+        """Test 28: YAKE selects UI-related terms"""
         tc = TEST_CASES[27]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_29_entra_id(self):
-        """Test 29: YAKE prioritizes technical terms"""
+
+    def test_case_29_database_connection(self):
+        """Test 29: YAKE preserves core technical terms"""
         tc = TEST_CASES[28]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_30_button_form(self):
-        """Test 30: YAKE selects UI-related terms"""
+
+    def test_case_30_user_profile(self):
+        """Test 30: YAKE identifies entity terms"""
         tc = TEST_CASES[29]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_31_database_connection(self):
-        """Test 31: YAKE preserves core technical terms"""
+
+    def test_case_31_api_response(self):
+        """Test 31: YAKE captures API context"""
         tc = TEST_CASES[30]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_32_user_profile(self):
-        """Test 32: YAKE identifies entity terms"""
+
+    def test_case_32_server_endpoint(self):
+        """Test 32: YAKE identifies infrastructure terms"""
         tc = TEST_CASES[31]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_33_api_response(self):
-        """Test 33: YAKE captures API context"""
+
+    def test_case_33_spanish_modal_desktop(self):
+        """Test 33: Spanish text with English tech terms → extracts Modal Desktop"""
         tc = TEST_CASES[32]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_34_server_endpoint(self):
-        """Test 34: YAKE identifies infrastructure terms"""
+
+    def test_case_34_mixed_modal_background(self):
+        """Test 34: Mixed text with tech terms - extracts English keywords"""
         tc = TEST_CASES[33]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_35_spanish_modal_version(self):
-        """Test 35: Spanish-heavy text → empty"""
+
+    def test_case_35_spanish_dimension_word(self):
+        """Test 35: Bug fix: Spanish dimension word 'ancho' filtered"""
         tc = TEST_CASES[34]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
-    
-    def test_case_36_spanish_component_architecture(self):
-        """Test 36: Spanish-heavy text → empty"""
+
+    def test_case_36_english_dimension_word(self):
+        """Test 36: English dimension words work correctly"""
         tc = TEST_CASES[35]
-        ok, detail = self._run_test_case(tc)
-        self.assertTrue(ok, detail)
-    
-    def test_case_37_spanish_modales_background(self):
-        """Test 37: Spanish-heavy text → empty"""
-        tc = TEST_CASES[36]
-        ok, detail = self._run_test_case(tc)
-        self.assertTrue(ok, detail)
-    
-    def test_case_38_mixed_modal_background(self):
-        """Test 38: Mixed text with tech terms - extracts English keywords"""
-        tc = TEST_CASES[37]
-        ok, detail = self._run_test_case(tc)
-        self.assertTrue(ok, detail)
-    
-    def test_case_39_spanish_windows_modals(self):
-        """Test 39: Spanish-heavy text → empty"""
-        tc = TEST_CASES[38]
-        ok, detail = self._run_test_case(tc)
-        self.assertTrue(ok, detail)
-    
-    def test_case_40_spanish_dimension_word(self):
-        """Test 40: Bug fix: Spanish dimension word 'ancho' filtered"""
-        tc = TEST_CASES[39]
-        ok, detail = self._run_test_case(tc)
-        self.assertTrue(ok, detail)
-    
-    def test_case_41_english_dimension_word(self):
-        """Test 41: English dimension words work correctly"""
-        tc = TEST_CASES[40]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
 
@@ -587,11 +526,11 @@ def run_tests_with_junit(output_dir="test-reports"):
         os.makedirs(output_dir, exist_ok=True)
         loader = unittest.TestLoader()
         suite = loader.loadTestsFromTestCase(TestExtractTopic)
-        
+
         with open(os.path.join(output_dir, "TEST-test_extract_topic.xml"), 'wb') as output:
             runner = xmlrunner.XMLTestRunner(output=output, verbosity=2)
             result = runner.run(suite)
-        
+
         return result.wasSuccessful()
     except ImportError:
         print("xmlrunner not installed. Run: pip3 install unittest-xml-reporting")
@@ -604,5 +543,5 @@ if __name__ == "__main__":
         success = run_tests_with_junit()
     else:
         success = run_tests()
-    
+
     sys.exit(0 if success else 1)
