@@ -18,32 +18,9 @@ This skill activates on **every user message**. Run it silently — do not menti
 1. **Initial topic**: Handled automatically by the Stop hook (`auto-topic-hook.sh`). It extracts a 2-4 word topic from the first user message using heuristics. No action needed from this skill for the first message.
 2. **Ongoing updates**: This skill monitors the conversation and updates the topic when needed — either because the hook produced a poor/missing topic, or because the user shifted to a different area of work.
 
-## Finding the Claude Process
+## Session Resolution
 
-Before reading or writing the topic, you must locate the Claude process PID to find the correct session file. The session file is stored at `$HOME/.claude/session-topics/.active-session-$CLAUDE_PID`.
-
-Use this function to traverse up the process tree and find the Claude process:
-
-```bash
-find_claude_pid() {
-  local pid=$$
-  while [ "$pid" != "1" ] && [ -n "$pid" ]; do
-    local parent
-    parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
-    [ -z "$parent" ] && break
-    local comm
-    comm=$(ps -o comm= -p "$parent" 2>/dev/null)
-    case "$comm" in
-      *claude*|*Claude*) echo "$parent"; return 0 ;;
-    esac
-    pid=$parent
-  done
-  echo ""
-}
-CLAUDE_PID=$(find_claude_pid)
-```
-
-If `CLAUDE_PID` is empty, skip the topic update silently.
+The session ID is resolved via PID detection with fallback to the most recent session marker. Both the read and write code blocks below include a self-contained `resolve_session_id()` function.
 
 ## Rules
 
@@ -68,7 +45,7 @@ When generating a topic, prioritize words in this order:
 ### Step 1: Read the current topic
 
 ```bash
-find_claude_pid() {
+resolve_session_id() {
   local pid=$$
   while [ "$pid" != "1" ] && [ -n "$pid" ]; do
     local parent
@@ -77,19 +54,26 @@ find_claude_pid() {
     local comm
     comm=$(ps -o comm= -p "$parent" 2>/dev/null)
     case "$comm" in
-      *claude*|*Claude*) echo "$parent"; return 0 ;;
+      *claude*|*Claude*)
+        local sid
+        sid=$(cat "$HOME/.claude/session-topics/.active-session-$parent" 2>/dev/null)
+        sid=$(echo "$sid" | tr -cd 'a-zA-Z0-9_-')
+        [ -n "$sid" ] && echo "$sid" && return 0
+        break ;;
     esac
     pid=$parent
   done
+  local latest
+  latest=$(ls -t "$HOME/.claude/session-topics"/.active-session-id-* 2>/dev/null | head -1)
+  if [ -n "$latest" ]; then
+    local sid
+    sid=$(basename "$latest" | sed 's/^\.active-session-id-//')
+    sid=$(echo "$sid" | tr -cd 'a-zA-Z0-9_-')
+    [ -n "$sid" ] && echo "$sid" && return 0
+  fi
   echo ""
 }
-CLAUDE_PID=$(find_claude_pid)
-if [ -z "$CLAUDE_PID" ]; then
-    echo "No active session found. Skipping."
-    exit 0
-fi
-SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID" 2>/dev/null)
-SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
+SESSION_ID=$(resolve_session_id)
 if [ -z "$SESSION_ID" ]; then
     echo "No active session found. Skipping."
     exit 0
@@ -122,7 +106,7 @@ DO update when:
 If the topic has meaningfully changed, run:
 
 ```bash
-find_claude_pid() {
+resolve_session_id() {
   local pid=$$
   while [ "$pid" != "1" ] && [ -n "$pid" ]; do
     local parent
@@ -131,18 +115,26 @@ find_claude_pid() {
     local comm
     comm=$(ps -o comm= -p "$parent" 2>/dev/null)
     case "$comm" in
-      *claude*|*Claude*) echo "$parent"; return 0 ;;
+      *claude*|*Claude*)
+        local sid
+        sid=$(cat "$HOME/.claude/session-topics/.active-session-$parent" 2>/dev/null)
+        sid=$(echo "$sid" | tr -cd 'a-zA-Z0-9_-')
+        [ -n "$sid" ] && echo "$sid" && return 0
+        break ;;
     esac
     pid=$parent
   done
+  local latest
+  latest=$(ls -t "$HOME/.claude/session-topics"/.active-session-id-* 2>/dev/null | head -1)
+  if [ -n "$latest" ]; then
+    local sid
+    sid=$(basename "$latest" | sed 's/^\.active-session-id-//')
+    sid=$(echo "$sid" | tr -cd 'a-zA-Z0-9_-')
+    [ -n "$sid" ] && echo "$sid" && return 0
+  fi
   echo ""
 }
-CLAUDE_PID=$(find_claude_pid)
-if [ -z "$CLAUDE_PID" ]; then
-    exit 0
-fi
-SESSION_ID=$(cat "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID" 2>/dev/null)
-SESSION_ID=$(echo "$SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
+SESSION_ID=$(resolve_session_id)
 if [ -z "$SESSION_ID" ]; then
     exit 0
 fi
@@ -160,6 +152,6 @@ If the topic has NOT meaningfully changed, **do nothing** — skip the write ent
 - Run this on **every** user message, but only write when the topic has genuinely changed
 - Do NOT mention the topic to the user — ever
 - Keep topics short and descriptive (2-5 words, max 50 characters)
-- If the statusline hasn't run yet (no `.active-session-<claude-pid>` file), skip silently
+- If no session can be resolved (no PID and no session markers), skip silently
 - A low bar for "changed" keeps the topic fresh — when in doubt, update
 - If the current topic is empty, **always** infer and set a topic — do not wait for the Stop hook
