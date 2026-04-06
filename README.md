@@ -18,9 +18,45 @@ npx @alexismunozdev/claude-session-topics --color cyan
 
 Supported colors: `red`, `green`, `yellow`, `blue`, `magenta` (default), `cyan`, `white`, `orange`, `grey`/`gray`. Raw ANSI codes are also accepted (e.g., `38;5;208`).
 
+## Voice notifications
+
+Get spoken alerts when Claude detects a new session topic — useful when multitasking across terminals.
+
+```bash
+npx @alexismunozdev/claude-session-topics --voice       # English default
+npx @alexismunozdev/claude-session-topics --voice es    # Spanish fallback
+```
+
+The voice **automatically matches your conversation language**. If you write in Spanish, you'll hear *"Tarea terminada: Deploy Config"*. In English: *"Done: Deploy Config"*.
+
+**Platforms supported:**
+
+| Platform | Engine | Install needed? |
+|----------|--------|----------------|
+| macOS | `say` (native) | No |
+| Linux | `espeak` / `espeak-ng` | `sudo apt install espeak` |
+| Windows | PowerShell SAPI | No |
+
+**Disable voice:**
+
+```bash
+npx @alexismunozdev/claude-session-topics --no-voice
+```
+
+**Customize** by editing `~/.claude/session-topics/.voice-config`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VOICE_ENABLED` | `1` | Master on/off |
+| `VOICE_AUTO_LANG` | `1` | Auto-detect language from conversation |
+| `VOICE_LANG` | `en` | Fallback language when auto-detect is off |
+| `VOICE_NAME` | *(empty)* | Specific voice (e.g., `Mónica`, `Jorge` on macOS) |
+| `VOICE_TEMPLATE` | *(empty)* | Custom message template with `{topic}` placeholder |
+| `VOICE_MUTED` | `0` | Temporary mute without disabling |
+
 ## What it does
 
-- After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using YAKE keyword extraction (no model tokens spent)
+- After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using lightweight keyword extraction (no model tokens spent)
 - The auto-topic skill refines the topic when the conversation shifts
 - Shows the topic in the Claude Code statusline (`◆ Topic`)
 - Change the topic anytime with `/set-topic`
@@ -34,15 +70,14 @@ Supported colors: `red`, `green`, `yellow`, `blue`, `magenta` (default), `cyan`,
 4. Adds bash permission for the script
 5. Installs `auto-topic` and `set-topic` skills to `~/.claude/skills/`
 6. If you already have a statusline, creates a wrapper that shows both
+7. Copies `voice-notify.sh` for optional voice alerts
 
 ## Requirements
 
 - `jq`
 - `bash`
-- Python 3
 - POSIX-compatible system (macOS, Linux)
-
-**Note:** Python dependency (YAKE for keyword extraction) is installed automatically during setup. If automatic installation fails, the plugin falls back to reduced functionality and displays instructions for manual installation.
+- `espeak` (Linux only, for voice notifications)
 
 ## Customization
 
@@ -65,7 +100,7 @@ The default topic color is bold magenta. Three ways to change it:
 
 ### Auto-topic (automatic)
 
-After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using YAKE keyword extraction (no model tokens spent). The auto-topic skill then monitors the conversation and updates the topic when you shift to a different subject.
+After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using lightweight keyword extraction (no model tokens spent). The auto-topic skill then monitors the conversation and updates the topic when you shift to a different subject.
 
 ### /set-topic (manual)
 
@@ -92,7 +127,7 @@ auto-topic skill monitors for conversation shifts and updates topic
 Statusline script reads the topic file → displays: ◆ Topic
 ```
 
-The Stop hook runs after each model response and uses YAKE (Yet Another Keyword Extractor) to extract the initial topic from the transcript. YAKE is a lightweight, unsupervised keyword extraction algorithm that provides better results than simple bag-of-words approaches. If YAKE is not available, it falls back to a legacy heuristic method. On subsequent messages, the auto-topic skill handles topic updates when the conversation shifts. The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
+The Stop hook runs after each model response and uses lightweight keyword extraction (jq + awk) to extract the initial topic from the transcript. No model tokens are spent — the extraction is purely heuristic. On subsequent messages, the auto-topic skill handles topic updates when the conversation shifts. The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
 
 ## Troubleshooting
 
@@ -145,10 +180,6 @@ Log levels (set via `CLAUDE_SESSION_TOPICS_LOG_LEVEL`):
 2. Verify permissions: `cat ~/.claude/settings.json | jq '.permissions'`
 3. Check debug logs for errors
 
-**YAKE not working (reduced functionality):**
-1. Install manually: `pip3 install yake`
-2. Or with --break-system-packages: `pip3 install yake --break-system-packages --user`
-
 **Permission denied errors:**
 1. Ensure scripts are executable: `chmod +x ~/.claude/session-topics/*.sh`
 2. Check that Bash permission is in settings.json
@@ -158,6 +189,8 @@ Log levels (set via `CLAUDE_SESSION_TOPICS_LOG_LEVEL`):
 ```bash
 npx @alexismunozdev/claude-session-topics --uninstall
 ```
+
+This also removes voice configuration (`~/.claude/session-topics/.voice-config`).
 
 ## License
 

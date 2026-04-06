@@ -94,32 +94,6 @@ check_dir() {
     fi
 }
 
-# Check Python module
-check_python_module() {
-    local module="$1"
-    local required="${2:-true}"
-    
-    if python3 -c "import $module" 2>/dev/null; then
-        local version
-        version=$(python3 -c "import $module; print($module.__version__)" 2>/dev/null) || version="installed"
-        echo -e "${GREEN}✓${NC} Python module $module: $version"
-        ((CHECKS_PASSED++))
-        log_info "Found Python module $module: $version"
-        return 0
-    else
-        if [ "$required" = "true" ]; then
-            echo -e "${RED}✗${NC} Python module $module: NOT FOUND (required)"
-            ((CHECKS_FAILED++))
-            log_error "Missing Python module: $module"
-        else
-            echo -e "${YELLOW}⚠${NC} Python module $module: NOT FOUND (optional)"
-            ((CHECKS_WARNINGS++))
-            log_warn "Missing optional Python module: $module"
-        fi
-        return 1
-    fi
-}
-
 # Check JSON file validity
 check_json() {
     local file="$1"
@@ -164,7 +138,6 @@ echo ""
 echo -e "${BLUE}Required Commands:${NC}"
 check_command "bash" true
 check_command "jq" true
-check_command "python3" true
 check_command "ps" true
 echo ""
 
@@ -174,17 +147,12 @@ check_command "shellcheck" false
 check_command "bats" false
 echo ""
 
-# Python modules
-echo -e "${BLUE}Python Modules:${NC}"
-check_python_module "yake" false
-echo ""
-
 # Installation files
 echo -e "${BLUE}Installation Files:${NC}"
 check_dir "$HOME/.claude/session-topics" "Topics directory"
 check_file "$HOME/.claude/session-topics/statusline.sh" "Statusline script"
 check_file "$HOME/.claude/session-topics/auto-topic-hook.sh" "Auto-topic hook"
-check_file "$HOME/.claude/session-topics/extract_topic.py" "Topic extractor"
+check_file "$HOME/.claude/session-topics/extract_topic.sh" "Topic extractor"
 echo ""
 
 # Skills
@@ -239,8 +207,8 @@ cat > "$TEST_TRANSCRIPT" << 'EOF'
 {"role": "user", "content": "Test message for diagnostics"}
 EOF
 
-if [ -f "$HOME/.claude/session-topics/extract_topic.py" ]; then
-    TOPIC_RESULT=$(python3 "$HOME/.claude/session-topics/extract_topic.py" "$TEST_TRANSCRIPT" 2>&1) || TOPIC_RESULT="ERROR"
+if [ -f "$HOME/.claude/session-topics/extract_topic.sh" ]; then
+    TOPIC_RESULT=$(bash "$HOME/.claude/session-topics/extract_topic.sh" "$TEST_TRANSCRIPT" 2>&1) || TOPIC_RESULT="ERROR"
     if [ -n "$TOPIC_RESULT" ] && [ "$TOPIC_RESULT" != "ERROR" ]; then
         echo -e "${GREEN}✓${NC} Topic extraction: working (result: '$TOPIC_RESULT')"
         ((CHECKS_PASSED++))
@@ -282,10 +250,6 @@ else
     
     if ! command -v jq &> /dev/null; then
         echo "  • Install jq: brew install jq (macOS) or apt-get install jq (Linux)"
-    fi
-    
-    if ! command -v python3 &> /dev/null; then
-        echo "  • Install Python 3"
     fi
     
     if [ ! -d "$HOME/.claude/session-topics" ]; then

@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved `.gitignore` to exclude build artifacts (*.tgz)
 
 ## [2.8.0] - 2025-03-30
-  - 41 Python tests for topic extraction
+  - 39 Bats tests for topic extraction
   - 6 shell integration tests (Bats)
   - 35 Node.js installer tests (Vitest)
 - Security hardening for installer
@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Verbose mode (`--verbose` flag)
   - Debug logs at `~/.claude/session-topics/debug.log`
 - CI/CD automation
-  - GitHub Actions workflow for testing (Python, Shell, Node.js)
+  - GitHub Actions workflow for testing (Shell, Node.js)
   - Automatic npm publishing on tags
   - Shellcheck and ESLint integration
   - macOS integration testing

@@ -7,7 +7,6 @@ Thank you for your interest in contributing! This document provides guidelines f
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Python 3.11+
 - Bash 4.0+
 - jq
 
@@ -16,9 +15,6 @@ Thank you for your interest in contributing! This document provides guidelines f
 ```bash
 # Install Node.js dependencies
 npm install
-
-# Install Python dependencies (optional but recommended)
-pip3 install yake
 
 # Install development tools (optional)
 brew install shellcheck bats-core  # macOS
@@ -51,9 +47,6 @@ git config core.hooksPath .githooks
 ### Individual Test Suites
 
 ```bash
-# Python tests
-python3 tests/python/test_extract_topic.py
-
 # Shell integration tests
 bats tests/integration/
 
@@ -101,7 +94,7 @@ npm run diagnose
 │   │   └── validate-cmd.sh     # Command validation
 │   ├── auto-topic-hook.sh      # Stop hook
 │   ├── statusline.sh           # Statusline script
-│   ├── extract_topic.py        # Topic extraction
+│   ├── extract_topic.sh        # Topic extraction
 │   ├── diagnose.sh             # Diagnostic tool
 │   ├── check-versions.sh       # Version checker
 │   └── sync-versions.js        # Version sync
@@ -110,7 +103,6 @@ npm run diagnose
 │   └── set-topic/              # Set-topic skill
 ├── tests/
 │   ├── integration/            # Shell integration tests
-│   ├── python/                 # Python tests
 │   ├── installer/              # Node.js installer tests
 │   └── fixtures/               # Test fixtures
 ├── hooks/
@@ -240,12 +232,6 @@ See [README.md#troubleshooting](README.md#troubleshooting) for common issues and
 - Async/await preferred over callbacks
 - Destructure when appropriate
 - JSDoc for function documentation
-
-### Python
-
-- Follow PEP 8
-- Use type hints where appropriate
-- Docstrings for modules and functions
 
 ## Questions?
 
