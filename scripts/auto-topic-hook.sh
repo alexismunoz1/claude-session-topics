@@ -80,10 +80,22 @@ if [ ! -f "$VERSION_FILE" ] || [ "$(cat "$VERSION_FILE" 2>/dev/null)" != "$HOOK_
     find "$HOME/.claude/session-topics" -maxdepth 1 -type f ! -name '.*' ! -name '*.sh' ! -name '*.py' -mmin +1 -delete 2>/dev/null || true
     echo "$HOOK_VERSION" > "$VERSION_FILE"
 fi
+find "$HOME/.claude/session-topics" -maxdepth 1 -name '.voice-announced-*' -mmin +1440 -delete 2>/dev/null || true
 
 # ── Fast path: topic already exists for this session
 TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
-[ -f "$TOPIC_FILE" ] && [ -s "$TOPIC_FILE" ] && exit 0
+VOICE_ANNOUNCED="$HOME/.claude/session-topics/.voice-announced-${SESSION_ID}"
+if [ -f "$TOPIC_FILE" ] && [ -s "$TOPIC_FILE" ]; then
+    if [ ! -f "$VOICE_ANNOUNCED" ]; then
+        TOPIC=$(cat "$TOPIC_FILE")
+        VOICE_SCRIPT="$SCRIPT_DIR/voice-notify.sh"
+        if [ -x "$VOICE_SCRIPT" ]; then
+            bash "$VOICE_SCRIPT" "$TOPIC" "" &>/dev/null &
+            touch "$VOICE_ANNOUNCED"
+        fi
+    fi
+    exit 0
+fi
 
 # ── Extract topic from transcript
 [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ] && exit 0
@@ -107,7 +119,10 @@ if [ -n "$TOPIC" ]; then
       debug_log "hook: wrote topic '$TOPIC' to $TOPIC_FILE"
       # Voice notification (opt-in, non-blocking)
       VOICE_SCRIPT="$SCRIPT_DIR/voice-notify.sh"
-      [ -x "$VOICE_SCRIPT" ] && bash "$VOICE_SCRIPT" "$TOPIC" "$DETECTED_LANG" &>/dev/null &
+      if [ -x "$VOICE_SCRIPT" ]; then
+          bash "$VOICE_SCRIPT" "$TOPIC" "$DETECTED_LANG" &>/dev/null &
+          touch "$VOICE_ANNOUNCED"
+      fi
     fi
 fi
 
