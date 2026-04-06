@@ -35,11 +35,18 @@ fi
 
 # If topic file doesn't exist, try to extract from transcript directly
 if [ -z "$TOPIC" ] && [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
-    TOPIC=$(bash "$SCRIPT_DIR/extract_topic.sh" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
-    if [ -n "$TOPIC" ]; then
-        mkdir -p "$HOME/.claude/session-topics"
-        echo "$TOPIC" > "$TOPIC_FILE"
-        debug_log "statusline: extracted topic '$TOPIC' from transcript"
+    RAW=$(bash "$SCRIPT_DIR/extract_topic.sh" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
+    if [ -n "$RAW" ]; then
+        if [[ "$RAW" == *:* ]]; then
+            TOPIC="${RAW#*:}"
+        else
+            TOPIC="$RAW"
+        fi
+        if [ -n "$TOPIC" ]; then
+            mkdir -p "$HOME/.claude/session-topics"
+            printf '%s\n' "$TOPIC" > "$TOPIC_FILE"
+            debug_log "statusline: extracted topic '$TOPIC' from transcript"
+        fi
     fi
 fi
 if [ -z "$TOPIC" ] && [ -n "${CLAUDE_SESSION_TOPICS_TOPIC:-}" ]; then
@@ -80,15 +87,6 @@ fi
 C_TOPIC=$(resolve_color "$_color")
 C_BOLD='\033[1m'
 C_RESET='\033[0m'
-
-# ── Cleanup stale files (atomic lock)
-CLEANUP_LOCK="/tmp/.claude-topic-cleanup-lock"
-if mkdir "$CLEANUP_LOCK" 2>/dev/null; then
-    trap 'rmdir "$CLEANUP_LOCK" 2>/dev/null || true' EXIT
-    find "$HOME/.claude/session-topics" -type f -mtime +7 -not -name '.*' -delete 2>/dev/null || true
-    find "$HOME/.claude/session-topics" -type f -name '.active-session-*' -mtime +7 -delete 2>/dev/null || true
-    rmdir "$CLEANUP_LOCK" 2>/dev/null
-fi
 
 # ── Run user's original statusline command (if any)
 ORIG_OUTPUT=""
