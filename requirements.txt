@@ -1,5 +1,0 @@
-# claude-session-topics Python dependencies
-# These are installed automatically by the installer, but can be installed manually with:
-# pip3 install -r requirements.txt
-
-yake>=0.7.0
