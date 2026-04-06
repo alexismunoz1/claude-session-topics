@@ -66,3 +66,7 @@ else
     # Case 1: No statusline at all — use stable copy directly
     jq --arg cmd "bash \"$STABLE_SL\"" '.statusLine = {"type": "command", "command": $cmd}' "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
 fi
+
+# ── Cleanup stale files (once per session start)
+find "$HOME/.claude/session-topics" -type f -mtime +7 -not -name '.*' -delete 2>/dev/null || true
+find "$HOME/.claude/session-topics" -type f -name '.active-session-*' -mtime +7 -delete 2>/dev/null || true
