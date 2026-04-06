@@ -84,8 +84,6 @@ clean_text() {
   text=$(echo "$text" | sed -E 's|https?://[^ ]*||g; s|file://[^ ]*||g')
   text=$(echo "$text" | tr -s '[:space:]' ' ')
   text="${text## }"; text="${text%% }"
-  text=$(echo "$text" | sed -E 's/[.!?;]( |$).*//')
-  text="${text## }"; text="${text%% }"
   local again=true
   while $again; do
     again=false; local before="$text"
@@ -98,6 +96,8 @@ clean_text() {
     text="${text## }"; text="${text%% }"
     [[ "$text" != "$before" ]] && again=true
   done
+  text=$(echo "$text" | sed -E 's/[.!?;]( |$).*//')
+  text="${text## }"; text="${text%% }"
   echo "$text"
 }
 
