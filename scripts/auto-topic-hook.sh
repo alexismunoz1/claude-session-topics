@@ -77,7 +77,7 @@ fi
 # ── Version-based cache invalidation: if hook version changed, wipe stale topics
 VERSION_FILE="$HOME/.claude/session-topics/.hook-version"
 if [ ! -f "$VERSION_FILE" ] || [ "$(cat "$VERSION_FILE" 2>/dev/null)" != "$HOOK_VERSION" ]; then
-    find "$HOME/.claude/session-topics" -maxdepth 1 -type f ! -name '.*' ! -name '*.sh' ! -name '*.py' -delete 2>/dev/null || true
+    find "$HOME/.claude/session-topics" -maxdepth 1 -type f ! -name '.*' ! -name '*.sh' ! -name '*.py' -mmin +1 -delete 2>/dev/null || true
     echo "$HOOK_VERSION" > "$VERSION_FILE"
 fi
 
