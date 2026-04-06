@@ -428,41 +428,14 @@ function install(color) {
         }
     }
 
-    // Install langdetect
-    let langdetectInstalled = false;
-    try {
-        execSync('python3 -c "import langdetect"', { stdio: 'pipe' });
-        ok('langdetect is installed');
-        langdetectInstalled = true;
-    } catch {
-        info('langdetect not found, attempting automatic installation...');
-
-        const installCommands = [
-            { cmd: 'pip3 install langdetect --user', desc: 'with --user flag' },
-            { cmd: 'pip3 install langdetect --break-system-packages --user', desc: 'with --break-system-packages' },
-            { cmd: 'python3 -m pip install langdetect --user', desc: 'using python3 -m pip' },
-        ];
-
-        for (const { cmd, desc } of installCommands) {
-            try {
-                execSync(cmd, { stdio: 'pipe' });
-                ok(`langdetect installed automatically (${desc})`);
-                langdetectInstalled = true;
-                break;
-            } catch {
-                // Try next command
-            }
-        }
-    }
-
-    if (!yakeInstalled || !langdetectInstalled) {
-        warn('Some Python dependencies could not be installed automatically');
+    if (!yakeInstalled) {
+        warn('YAKE could not be installed automatically');
         console.log(`\n  ${BOLD}To install manually:${RESET}`);
-        console.log(`    ${CYAN}pip3 install yake langdetect${RESET}`);
+        console.log(`    ${CYAN}pip3 install yake${RESET}`);
         console.log(`\n  Or with --break-system-packages if needed:`);
-        console.log(`    ${CYAN}pip3 install yake langdetect --break-system-packages --user${RESET}\n`);
+        console.log(`    ${CYAN}pip3 install yake --break-system-packages --user${RESET}\n`);
         console.log(`  ${YELLOW}Note:${RESET} The plugin will still work with reduced functionality.`);
-        console.log(`        Installing all dependencies is recommended for best results.\n`);
+        console.log(`        Installing YAKE is recommended for best results.\n`);
     }
 
     if (color) {

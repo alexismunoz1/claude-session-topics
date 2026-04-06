@@ -18,7 +18,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 npm install
 
 # Install Python dependencies (optional but recommended)
-pip3 install yake langdetect
+pip3 install yake
 
 # Install development tools (optional)
 brew install shellcheck bats-core  # macOS

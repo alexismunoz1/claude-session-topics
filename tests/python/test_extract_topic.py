@@ -37,54 +37,54 @@ TEST_CASES = [
         "input": "I need to refactor the database migration scripts",
         "expected": "Database Migration Scripts",
     },
-    # ── Spanish messages → extract English tech terms ──
+    # ── Spanish messages → extract keywords ──
     {
         "num": 2,
         "input": "Hola, necesito ayuda con el componente de autenticación de NextAuth",
-        "check_contains": ["NextAuth"],
-        "description": "Spanish text with English tech term → extracts NextAuth",
+        "expected": "Componente Autenticación NextAuth",
+        "description": "Spanish text extracts keywords in Spanish",
     },
     {
         "num": 3,
         "input": "Corrige el error de autenticación en NeonDB",
-        "check_contains": ["NeonDB"],
-        "description": "Spanish text with English tech term → extracts NeonDB",
+        "expected": "Corrige Error Autenticación NeonDB",
+        "description": "Spanish text extracts keywords in Spanish",
     },
     {
         "num": 6,
         "input": "Revisa los tests de la API de pagos",
-        "expected": "Tests API",
-        "description": "Mixed text with tech terms - extracts English keywords",
+        "expected": "Revisa Tests API Pagos",
+        "description": "Mixed text extracts all keywords",
     },
     {
         "num": 9,
         "input": "Implementa rate limiting en el endpoint de login",
-        "expected": "Rate Limiting Endpoint Login",
-        "description": "Mixed text with tech terms - extracts English keywords",
+        "expected": "Implementa Rate Limiting Endpoint",
+        "description": "Mixed text extracts all keywords",
     },
     {
         "num": 10,
         "input": "Actualiza las dependencias de Docker Compose",
-        "expected": "Docker Compose",
-        "description": "Spanish text with English tech terms → extracts Docker Compose",
+        "expected": "Actualiza Dependencias Docker Compose",
+        "description": "Spanish text extracts keywords in Spanish",
     },
     {
         "num": 20,
         "input": "Necesitan reajustar los esqueletos de la pantalla de perfil",
-        "expected": "",
-        "description": "all-Spanish → empty (LLM skill handles it)",
+        "expected": "Necesitan Reajustar Esqueletos Pantalla",
+        "description": "Spanish text extracts keywords in Spanish",
     },
     {
         "num": 21,
         "input": "Configura el endpoint de autenticación con NextAuth y NeonDB",
-        "check_contains": ["Endpoint", "NextAuth"],
-        "description": "Spanish text with English tech terms → extracts Endpoint and NextAuth",
+        "expected": "Configura Endpoint Autenticación NextAuth",
+        "description": "Spanish text extracts keywords in Spanish",
     },
     {
         "num": 22,
         "input": "Investiga por qué el hook de session topic genera basura",
-        "check_contains": ["Hook", "Session"],
-        "description": "Spanish text with English tech terms → extracts Hook and Session",
+        "expected": "Investiga Hook Session Topic",
+        "description": "Spanish text extracts keywords in Spanish",
     },
     # ── Markdown image stripping ──
     {
@@ -187,8 +187,8 @@ TEST_CASES = [
     {
         "num": 27,
         "input": "Modifica el diseño de la pestaña de búsqueda",
-        "expected": "",
-        "description": "diseño contains ñ → all Spanish → empty",
+        "expected": "Modifica Diseño Pestaña Búsqueda",
+        "description": "Spanish text with ñ extracts keywords",
     },
     # ── Semantic coherence tests ──
     {
@@ -227,26 +227,25 @@ TEST_CASES = [
         "check_contains": ["Server", "Endpoint"],
         "description": "YAKE identifies infrastructure terms - verify Server and Endpoint present",
     },
-    # ── Bug fix: Spanish detection - extract English terms from Spanish texts ──
+    # ── Bug fix: Spanish detection - extract keywords from Spanish texts ──
     {
         "num": 35,
         "input": "![Image](url) Emigró el modal a la versión desktop",
-        "expected": "Modal Desktop",
-        "description": "Spanish text with English tech terms → extracts Modal Desktop",
+        "expected": "Emigró Modal Versión Desktop",
+        "description": "Spanish text extracts keywords in Spanish",
     },
     {
         "num": 38,
         "input": "Montar el modal en el background",
-        "expected": "Modal Background",
-        "description": "Mixed text with tech terms - extracts English keywords",
+        "expected": "Montar Modal Background",
+        "description": "Mixed text extracts all keywords",
     },
     # ── Bug fix: Spanish dimension words ──
     {
         "num": 40,
         "input": "Screen profile ancho 900px",
-        "check_contains": ["Screen", "Profile", "900px"],
-        "check_excludes": ["Ancho"],
-        "description": "Bug fix: Spanish dimension word 'ancho' filtered",
+        "expected": "Screen Profile Ancho 900px",
+        "description": "Dimension words included in topic",
     },
     {
         "num": 41,
@@ -300,13 +299,13 @@ class TestExtractTopic(unittest.TestCase):
         self.assertTrue(ok, detail)
 
     def test_case_02_spanish_nextauth(self):
-        """Test 2: Spanish text with English tech term → extracts NextAuth"""
+        """Test 2: Spanish text extracts keywords in Spanish"""
         tc = TEST_CASES[1]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
 
     def test_case_03_spanish_neondb(self):
-        """Test 3: Spanish text with English tech term → extracts NeonDB"""
+        """Test 3: Spanish text extracts keywords in Spanish"""
         tc = TEST_CASES[2]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
@@ -324,7 +323,7 @@ class TestExtractTopic(unittest.TestCase):
         self.assertTrue(ok, detail)
 
     def test_case_06_tests_api_pagos(self):
-        """Test 6: Mixed text with tech terms - extracts English keywords"""
+        """Test 6: Mixed text extracts all keywords"""
         tc = TEST_CASES[5]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
@@ -342,31 +341,31 @@ class TestExtractTopic(unittest.TestCase):
         self.assertTrue(ok, detail)
 
     def test_case_09_rate_limiting_login(self):
-        """Test 9: Mixed text with tech terms - extracts English keywords"""
+        """Test 9: Mixed text extracts all keywords"""
         tc = TEST_CASES[8]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
 
     def test_case_10_docker_compose(self):
-        """Test 10: Spanish text with English tech terms → extracts Docker Compose"""
+        """Test 10: Spanish text extracts keywords in Spanish"""
         tc = TEST_CASES[9]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
 
     def test_case_11_spanish_skeletons(self):
-        """Test 11: all-Spanish → empty"""
+        """Test 11: Spanish text extracts keywords in Spanish"""
         tc = TEST_CASES[10]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
 
     def test_case_12_spanish_nextauth_config(self):
-        """Test 12: Spanish text with English tech terms → extracts Endpoint and NextAuth"""
+        """Test 12: Spanish text extracts keywords in Spanish"""
         tc = TEST_CASES[11]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
 
     def test_case_13_spanish_session_hook(self):
-        """Test 13: Spanish text with English tech terms → extracts Hook and Session"""
+        """Test 13: Spanish text extracts keywords in Spanish"""
         tc = TEST_CASES[12]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
@@ -444,7 +443,7 @@ class TestExtractTopic(unittest.TestCase):
         self.assertTrue(ok, detail)
 
     def test_case_26_spanish_n_detection(self):
-        """Test 26: diseño contains ñ → all Spanish → empty"""
+        """Test 26: Spanish text with ñ extracts keywords"""
         tc = TEST_CASES[25]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
@@ -486,19 +485,19 @@ class TestExtractTopic(unittest.TestCase):
         self.assertTrue(ok, detail)
 
     def test_case_33_spanish_modal_desktop(self):
-        """Test 33: Spanish text with English tech terms → extracts Modal Desktop"""
+        """Test 33: Spanish text extracts keywords in Spanish"""
         tc = TEST_CASES[32]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
 
     def test_case_34_mixed_modal_background(self):
-        """Test 34: Mixed text with tech terms - extracts English keywords"""
+        """Test 34: Mixed text extracts all keywords"""
         tc = TEST_CASES[33]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)
 
     def test_case_35_spanish_dimension_word(self):
-        """Test 35: Bug fix: Spanish dimension word 'ancho' filtered"""
+        """Test 35: Dimension words included in topic"""
         tc = TEST_CASES[34]
         ok, detail = self._run_test_case(tc)
         self.assertTrue(ok, detail)

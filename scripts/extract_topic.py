@@ -21,16 +21,6 @@ import re
 import sys
 import unicodedata
 
-# Language detection for enforcing English-only topics
-try:
-    from langdetect import detect, DetectorFactory
-    from langdetect.lang_detect_exception import LangDetectException
-    # Set seed for reproducible results
-    DetectorFactory.seed = 0
-    LANGDETECT_AVAILABLE = True
-except ImportError:
-    LANGDETECT_AVAILABLE = False
-
 # YAKE integration for improved keyword extraction
 # YAKE (Yet Another Keyword Extractor) is a lightweight, unsupervised keyword extraction
 # algorithm that provides better results than simple bag-of-words approaches
@@ -40,7 +30,7 @@ try:
 except ImportError:
     YAKE_AVAILABLE = False
 
-VERSION = 9  # Bump when extraction logic changes → invalidates cached topics
+VERSION = 10  # Bump when extraction logic changes → invalidates cached topics
 
 
 def _strip_accents(s):
@@ -118,130 +108,6 @@ COMPOUND_TERMS = {
     'config', 'environment', 'production', 'staging', 'development',
 }
 
-# Spanish morphological suffixes (unaccented — words normalized before match)
-# 'sion' intentionally omitted: too many English false positives (session, version)
-_ES_SUFFIX_RE = re.compile(
-    r'(?:cion|mente|iendo|amiento|imiento|izacion'
-    r'|anza|encia|oso|osa|osos|osas|ito|ita|itos|itas'
-    r'|ando|endo|ado|ados|ida|idas)$', re.I,
-)
-
-_ES_WORDS = {
-    # Common words that bypass stop_words / don't match suffixes
-    'ahora', 'algo', 'antes', 'bien', 'cada', 'casi', 'cierto', 'creo',
-    'cuando', 'debe', 'deben', 'desde', 'dia', 'donde', 'ejemplo', 'ella',
-    'ellos', 'entonces', 'forma', 'fue', 'gran', 'grande', 'grandes',
-    'hace', 'hacia', 'hasta', 'hay', 'hoy', 'igual', 'lado', 'lugar',
-    'manera', 'mejor', 'menos', 'mientras', 'mismo', 'misma', 'momento',
-    'mucho', 'mucha', 'muchos', 'muy', 'nada', 'necesitan', 'nunca',
-    'otro', 'otra', 'otros', 'parece', 'poco', 'puede', 'pueden', 'punto',
-    'queda', 'quien', 'sea', 'sido', 'siempre', 'sino', 'sobre', 'solo',
-    'soy', 'tambien', 'tanto', 'tiempo', 'tiene', 'tienen', 'tipo',
-    'todo', 'todos', 'verdad', 'vez', 'voy', 'hecho', 'dicho',
-    # Tech-adjacent Spanish nouns
-    'archivo', 'archivos', 'carpeta', 'pantalla', 'campo', 'tabla',
-    'usuario', 'pagina', 'registro', 'mensaje', 'imagen', 'texto', 'lista',
-    'esqueleto', 'esqueletos', 'perfil', 'perfiles', 'componente',
-    'componentes', 'dependencia', 'dependencias', 'servicio', 'proyecto',
-    'funcion', 'funciones', 'variable', 'directorio', 'paquete', 'metodo',
-    'clase', 'modulo', 'recurso', 'valor', 'proceso', 'sistema',
-    'servidor', 'cliente', 'clave', 'ruta', 'entorno', 'cambio', 'prueba',
-    'desarrollo', 'permiso', 'acceso', 'seguridad', 'estructura', 'diseno',
-    'estado', 'cuenta', 'evento', 'nivel', 'opcion', 'seccion', 'bloque',
-    'fuente', 'carga', 'tarea', 'regla', 'error', 'errores', 'pagos',
-    # -sión words (suffix 'sion' excluded from regex to avoid English false positives)
-    'sesion', 'version', 'mision', 'extension', 'conexion', 'expresion',
-    'revision', 'decision', 'dimension', 'produccion', 'aplicacion',
-    # Conjugated verbs that don't match suffixes
-    'corrige', 'arregla', 'agrega', 'elimina', 'cambia', 'modifica',
-    'implementa', 'construye', 'escribe', 'crea', 'revisa', 'configura',
-    'instala', 'mueve', 'renombra', 'resuelve', 'maneja', 'oculta',
-    'habilita', 'deshabilita', 'migra', 'emigra', 'emigro', 'despliega', 'ejecuta', 'inicia',
-    'detiene', 'reemplaza', 'convierte', 'analiza', 'investiga', 'verifica',
-    'actualiza', 'refactoriza', 'genera', 'necesita', 'quita', 'muestra',
-    'busca', 'abre', 'cierra', 'sube', 'baja', 'funciona', 'funcione',
-    'adapta', 'toca', 'toques', 'realiza', 'hacen',
-    # Misc
-    'generar', 'reajustar', 'basura', 'usar', 'dentro', 'fuera',
-    'rapido', 'lento', 'posible', 'necesario', 'anterior', 'completo',
-    'actualmente', 'solamente', 'adecuadamente', 'busqueda', 'pestana',
-    'contrasena', 'tamano', 'tamanos', 'flujo', 'flujos', 'inicio',
-    'cuenta', 'cuentas', 'recupero', 'pantallas', 'elementos',
-    'ventaja', 'ventajas', 'respecto', 'diferencia', 'diferencias',
-    'comparar', 'compara', 'mejor', 'peor', 'manera', 'forma',
-    'hablemos', 'vamos', 'quiero', 'necesito',
-    'objetivo', 'objetivos', 'motivo', 'razon', 'causa',
-    'problema', 'solucion', 'resultado', 'ejemplo', 'detalle', 'detalles',
-    # Common short verbs/conjugations that don't match suffixes
-    'tomar', 'toma', 'toman', 'tome', 'hablar', 'habla', 'dar', 'damos',
-    'sacar', 'saca', 'ganar', 'gana', 'pagar', 'paga', 'dejar', 'deja',
-    'pensar', 'piensa', 'seguir', 'sigue', 'siguen', 'volver', 'vuelve',
-    'sentir', 'siente', 'pedir', 'pide', 'piden', 'salir', 'sale', 'salen',
-    'traer', 'trae', 'perder', 'pierde', 'poner', 'pone', 'ponen',
-    'decir', 'dice', 'dicen', 'saber', 'saben', 'querer', 'ver', 'veo',
-    'llevar', 'lleva', 'llamar', 'llama', 'llaman', 'pasar', 'pasa',
-    'quedar', 'queda', 'creer', 'cree', 'creen', 'conocer', 'conoce',
-    # Montar and related
-    'montar', 'monta', 'montan', 'monte', 'montando', 'montado',
-    # Position/location words
-    'alrededor', 'alrededores', 'encima', 'debajo', 'dentro', 'fuera',
-    'detras', 'delante', 'entre', 'hacia', 'desde', 'hasta',
-    # UI-related Spanish words
-    'modales', 'ventana', 'ventanas', 'cuadro', 'cuadros', 'dialogo',
-    'boton', 'botones', 'campo', 'campos', 'fila', 'filas', 'columna', 'columnas',
-    # More common Spanish words that should be filtered
-    'emigro', 'emigró', 'emigra', 'emigró', 'necesito', 'necesita', 'ayuda',
-    'con', 'para', 'por', 'como', 'pero', 'mas', 'más', 'este', 'esta', 'esto',
-    'ese', 'esa', 'eso', 'aqui', 'aquí', 'alli', 'allí', 'ahi', 'ahí',
-    'arquitectura', 'arquitecturas', 'nueva', 'nuevo', 'nuevas', 'nuevos',
-    'viejos', 'viejas', 'viejo', 'vieja', 'error', 'errores', 'correcto',
-    # Size/dimension words
-    'ancho', 'ancha', 'anchos', 'anchas', 'alto', 'alta', 'altos', 'altas',
-    'largo', 'larga', 'largos', 'largas', 'pequeno', 'pequena', 'pequenos', 'pequenas',
-    'grande', 'grandes', 'mediano', 'mediana', 'medianos', 'medianas',
-    # More verbs
-    'arreglar', 'arregla', 'arreglan', 'arreglo', 'arreglando',
-    'hacer', 'hace', 'hacen', 'hago', 'hacia', 'hecho',
-}
-
-
-def _is_spanish(word):
-    """Heuristic: is this word likely Spanish?"""
-    wl = word.lower()
-    # ñ is exclusively Spanish
-    if 'ñ' in wl:
-        return True
-    wn = _strip_accents(wl)
-    if wn in _ES_WORDS:
-        return True
-    if _ES_SUFFIX_RE.search(wn):
-        return True
-    return False
-
-
-def _is_primarily_spanish(text):
-    """Detect if text contains significant Spanish words.
-    
-    Uses a simple heuristic: if >40% of content words are Spanish,
-    consider the text Spanish. This is more reliable than langdetect
-    for short technical texts.
-    """
-    if not text:
-        return False
-    
-    # Extract words
-    words = re.findall(r'[a-zA-Z\u00C0-\u024F]+', text.lower())
-    if not words:
-        return False
-    
-    # Count Spanish words
-    spanish_count = sum(1 for w in words if _is_spanish(w))
-    
-    # If more than 25% are Spanish, consider it Spanish text
-    # Lower threshold to catch short phrases with Spanish verbs
-    return spanish_count / len(words) > 0.25
-
-
 # ── Extraction ──────────────────────────────────────────────────────────────
 
 
@@ -299,27 +165,6 @@ def _get_user_text(obj):
     return None
 
 
-def _detect_language(text):
-    """Detect if text is primarily English or Spanish based on word frequency."""
-    if not text:
-        return "en"
-    
-    words = text.lower().split()
-    spanish_indicators = 0
-    english_indicators = 0
-    
-    for word in words:
-        clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', word)
-        if not clean:
-            continue
-        if _is_spanish(clean):
-            spanish_indicators += 1
-        elif clean in STOP_WORDS:
-            english_indicators += 1
-    
-    return "es" if spanish_indicators > english_indicators else "en"
-
-
 def _legacy_extract_topic(cleaned_text):
     """
     Legacy bag-of-words extraction method.
@@ -338,8 +183,6 @@ def _legacy_extract_topic(cleaned_text):
             continue
         cl = _strip_accents(clean.lower())
         if cl in STOP_WORDS:
-            continue
-        if _is_spanish(clean):
             continue
         if cl in ACTION_VERBS:
             verbs.append(clean)
@@ -360,7 +203,7 @@ def _legacy_extract_topic(cleaned_text):
 
 
 def extract_topic(text):
-    """Extract a concise 2-4 word English topic from user text."""
+    """Extract a concise 2-4 word topic from user text."""
     if not text:
         return ''
 
@@ -394,10 +237,8 @@ def extract_topic(text):
         text = re.sub(p, '', text, flags=re.IGNORECASE).strip()
         text = re.sub(r'^[,;:\s]+', '', text).strip()
 
-    # ── 6. Language detection: select YAKE language parameter
-    # Detect if text is primarily Spanish to configure YAKE accordingly.
-    # Spanish text uses lan="es" for better keyword extraction.
-    yake_lang = "es" if _is_primarily_spanish(text) else "en"
+    # ── 6. YAKE language parameter
+    yake_lang = "en"
 
     # ── 7. Smart topic extraction with structured composition
     # Goal: Create topics like "Fix Certificate Modal Desktop Layout"
@@ -423,7 +264,7 @@ def extract_topic(text):
                     if not clean or len(clean) < 2:
                         continue
                     cl = _strip_accents(clean.lower())
-                    if cl in STOP_WORDS or _is_spanish(clean):
+                    if cl in STOP_WORDS:
                         continue
                     if clean.lower() not in [w.lower() for w in candidate_words]:
                         candidate_words.append(clean)
@@ -484,28 +325,16 @@ def extract_topic(text):
     # ── 8. Post-process: limit to 2-4 words, capitalize, max 50 chars
     # Ensure we have at least 2 words for better context
     if len(words) == 1:
-        # Check if we already have an English technical term
-        has_english_tech_term = (
-            len(words) >= 1 and 
-            not _is_spanish(words[0]) and
-            (_strip_accents(words[0].lower()) in ACTION_VERBS or
-             _strip_accents(words[0].lower()) in COMPOUND_TERMS or
-             len(words[0]) >= 4)
-        )
-        
-        # Only add additional words if they are English technical terms
+        # Try to add a second word for better context
         for w in text.split():
             if len(words) >= 2:
                 break
-            
+
             # Handle file names with extensions (e.g., "package.json")
             if '.' in w and not w.startswith('.') and not w.endswith('.'):
                 parts = w.lower().split('.')
                 for part in parts:
                     if len(part) < 2:
-                        continue
-                    # Skip Spanish words when we already have English terms
-                    if has_english_tech_term and _is_spanish(part):
                         continue
                     if part not in [x.lower() for x in words]:
                         words.append(part.capitalize())
@@ -514,16 +343,10 @@ def extract_topic(text):
                 clean = re.sub(r'[^a-zA-Z0-9\u00C0-\u024F-]', '', w)
                 if not clean or len(clean) < 2:
                     continue
-                
-                # Skip Spanish words entirely - only accept English technical terms
-                if _is_spanish(clean):
-                    continue
-                    
                 cl = _strip_accents(clean.lower())
                 if cl in STOP_WORDS:
                     continue
                 if clean.lower() != words[0].lower():
-                    # Only add if it's a technical term (action verb or compound term)
                     if cl in ACTION_VERBS or cl in COMPOUND_TERMS:
                         words.append(clean)
     
@@ -548,14 +371,6 @@ def extract_topic(text):
         if len(topic) > 50:
             topic = topic[:50].rstrip()
     
-    # ── Final validation: reject topics containing Spanish words
-    # This enforces the English-only policy strictly
-    topic_words = topic.split()
-    spanish_count = sum(1 for w in topic_words if _is_spanish(w))
-    if spanish_count > 0:
-        # Contains Spanish words - return empty to trigger fallback behavior
-        return ''
-
     return topic
 
 

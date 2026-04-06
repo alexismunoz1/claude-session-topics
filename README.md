@@ -42,7 +42,7 @@ Supported colors: `red`, `green`, `yellow`, `blue`, `magenta` (default), `cyan`,
 - Python 3
 - POSIX-compatible system (macOS, Linux)
 
-**Note:** Python dependencies (YAKE for keyword extraction, langdetect for language detection) are installed automatically during setup. If automatic installation fails, the plugin falls back to reduced functionality and displays instructions for manual installation.
+**Note:** Python dependency (YAKE for keyword extraction) is installed automatically during setup. If automatic installation fails, the plugin falls back to reduced functionality and displays instructions for manual installation.
 
 ## Customization
 
@@ -146,8 +146,8 @@ Log levels (set via `CLAUDE_SESSION_TOPICS_LOG_LEVEL`):
 3. Check debug logs for errors
 
 **YAKE not working (reduced functionality):**
-1. Install manually: `pip3 install yake langdetect`
-2. Or with --break-system-packages: `pip3 install yake langdetect --break-system-packages --user`
+1. Install manually: `pip3 install yake`
+2. Or with --break-system-packages: `pip3 install yake --break-system-packages --user`
 
 **Permission denied errors:**
 1. Ensure scripts are executable: `chmod +x ~/.claude/session-topics/*.sh`

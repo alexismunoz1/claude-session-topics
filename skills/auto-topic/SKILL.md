@@ -49,8 +49,8 @@ If `CLAUDE_PID` is empty, skip the topic update silently.
 
 1. After reading each user message, infer a topic of **2-5 words** (max 50 characters) that reflects what the user is currently working on
 2. The topic should reflect the user's **current** focus, not the overall session theme. When in doubt, **update** the topic
-3. Topics MUST always be in English, regardless of the user's language. If the user writes in Spanish or another language, translate the topic to English (e.g., "Autenticación NeonDB" → "NeonDB Auth")
-4. Focus on the user's **intent**, not their exact words. For "En la home desktop, en el buscard se muestra este elemento...", the topic should be "Home Search Navigation" or "Search Bar Redirect", not a literal extraction of words
+3. Topics should be in the same language the user is speaking. If the user writes in Spanish, the topic should be in Spanish; if in English, in English
+4. Focus on the user's **intent**, not their exact words. Extract the core subject being discussed in 2-5 concise words
 5. Examples: "NeonDB Auth Session", "React Query Cache", "Payment API Tests", "Docker Compose Setup", "Login Component Fix"
 6. Run the topic check and update **silently** — do not tell the user you set or changed it
 7. If `/set-topic` is used later by the user, that takes priority
@@ -115,7 +115,7 @@ DO update when:
 - The original topic no longer describes what the conversation is about
 - The hook-generated topic is too generic and you can infer a better one from context
 - The current topic is dominated by action verbs or generic terms (e.g., "Fix Error", "Corrige Bug", "Add New") — replace with domain-specific terms from the user's message
-- The current topic is not in English — always translate to English (e.g., "Dependencias Docker Compose" → "Docker Compose Dependencies")
+- The current topic is in a different language than the user is currently speaking
 
 ### Step 3: Write the new topic (only if changed)
 

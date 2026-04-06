@@ -3,4 +3,3 @@
 # pip3 install -r requirements.txt
 
 yake>=0.7.0
-langdetect>=1.0.9

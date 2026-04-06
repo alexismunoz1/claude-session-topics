@@ -177,7 +177,6 @@ echo ""
 # Python modules
 echo -e "${BLUE}Python Modules:${NC}"
 check_python_module "yake" false
-check_python_module "langdetect" false
 echo ""
 
 # Installation files
