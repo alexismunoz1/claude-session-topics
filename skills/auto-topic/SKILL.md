@@ -89,7 +89,7 @@ Compare the inferred new topic with the current topic. **Only write a new topic 
 - Minor variations of the same topic (e.g., "Auth Tests" → "Auth Unit Tests")
 - Minor rewording of the same specific task (e.g., "Auth Refactor" → "Refactor Auth")
 - Rewording without a real subject change
-- The first message IF the Stop hook has already set a topic (check if current topic is non-empty)
+- The first message IF the Stop hook has already set a **good, meaningful** topic that accurately describes the user's intent
 
 DO update when:
 - The current topic is empty or was not set by the hook — **always** infer a topic from the conversation context
@@ -100,6 +100,7 @@ DO update when:
 - The hook-generated topic is too generic and you can infer a better one from context
 - The current topic is dominated by action verbs or generic terms (e.g., "Fix Error", "Corrige Bug", "Add New") — replace with domain-specific terms from the user's message
 - The current topic is in a different language than the user is currently speaking
+- The current topic reads like raw words from the user's message rather than a distilled subject (e.g., "Recién Estaba Creando Cuenta" instead of "Signup Input Estilos") — the hook uses heuristics that often grab the first non-stop-words verbatim
 
 ### Step 3: Write the new topic (only if changed)
 
