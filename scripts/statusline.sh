@@ -35,7 +35,7 @@ fi
 
 # If topic file doesn't exist, try to extract from transcript directly
 if [ -z "$TOPIC" ] && [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
-    TOPIC=$(python3 "$SCRIPT_DIR/extract_topic.py" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
+    TOPIC=$(bash "$SCRIPT_DIR/extract_topic.sh" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
     if [ -n "$TOPIC" ]; then
         mkdir -p "$HOME/.claude/session-topics"
         echo "$TOPIC" > "$TOPIC_FILE"

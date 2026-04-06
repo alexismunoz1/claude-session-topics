@@ -32,21 +32,13 @@ fi
 
 input=$(cat)
 
-# ── Get HOOK_VERSION from extract_topic.py
-HOOK_VERSION=$(python3 -c "
-import sys; sys.path.insert(0, '$SCRIPT_DIR')
-from extract_topic import VERSION; print(VERSION)
-" 2>/dev/null || echo "0")
+# ── Get HOOK_VERSION from extract_topic.sh
+HOOK_VERSION=$(grep '^VERSION=' "$SCRIPT_DIR/extract_topic.sh" 2>/dev/null | head -1 | cut -d= -f2)
+HOOK_VERSION="${HOOK_VERSION:-0}"
 
 # ── Parse JSON fields (session_id is the primary identifier)
-read -r SESSION_ID TRANSCRIPT_PATH <<< "$(echo "$input" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    print(d.get('session_id', ''), d.get('transcript_path', ''))
-except:
-    print(' ')
-" 2>/dev/null || echo " ")"
+SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
+TRANSCRIPT_PATH=$(echo "$input" | jq -r '.transcript_path // ""')
 
 # ── Validate session ID
 if type sanitize_session_id &>/dev/null; then
@@ -96,7 +88,15 @@ TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
 # ── Extract topic from transcript
 [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ] && exit 0
 
-TOPIC=$(python3 "$SCRIPT_DIR/extract_topic.py" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
+RAW=$(bash "$SCRIPT_DIR/extract_topic.sh" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
+
+if [[ "$RAW" == *:* ]]; then
+    DETECTED_LANG="${RAW%%:*}"
+    TOPIC="${RAW#*:}"
+else
+    DETECTED_LANG="en"
+    TOPIC="$RAW"
+fi
 
 # ── Write topic
 if [ -n "$TOPIC" ]; then
@@ -105,6 +105,9 @@ if [ -n "$TOPIC" ]; then
     if [ -n "$TOPIC" ]; then
       printf '%s\n' "$TOPIC" > "$TOPIC_FILE"
       debug_log "hook: wrote topic '$TOPIC' to $TOPIC_FILE"
+      # Voice notification (opt-in, non-blocking)
+      VOICE_SCRIPT="$SCRIPT_DIR/voice-notify.sh"
+      [ -x "$VOICE_SCRIPT" ] && bash "$VOICE_SCRIPT" "$TOPIC" "$DETECTED_LANG" &>/dev/null &
     fi
 fi
 
