@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test runner for claude-session-topics
-# Runs all test suites: Python, Shell integration, and linting
+# Runs all test suites: Shell integration and linting
 
 set -euo pipefail
 
@@ -37,13 +37,7 @@ run_test_suite() {
     echo ""
 }
 
-# 1. Python tests
-if [ -d "$SCRIPT_DIR/tests/python" ]; then
-    run_test_suite "Python Tests (extract_topic)" \
-        "cd '$SCRIPT_DIR' && python3 tests/python/test_extract_topic.py"
-fi
-
-# 2. Bats integration tests
+# 1. Bats integration tests
 if [ -f "$SCRIPT_DIR/tests/bats/bin/bats" ] && [ -d "$SCRIPT_DIR/tests/integration" ]; then
     run_test_suite "Shell Integration Tests (Bats)" \
         "cd '$SCRIPT_DIR' && ./tests/bats/bin/bats tests/integration/"

@@ -3,9 +3,9 @@
 load helper
 
 @test "test_extract_topic_from_transcript" {
-  # Test that extract_topic.py correctly extracts topic from English transcript
-  run python3 "$PROJECT_ROOT/scripts/extract_topic.py" "$PROJECT_ROOT/tests/fixtures/transcript-english.jsonl"
-  
+  # Test that extract_topic.sh correctly extracts topic from English transcript
+  run bash "$PROJECT_ROOT/scripts/extract_topic.sh" "$PROJECT_ROOT/tests/fixtures/transcript-english.jsonl"
+
   [ "$status" -eq 0 ]
   [[ "$output" == *"NeonDB"* ]] || [[ "$output" == *"Authentication"* ]] || [[ "$output" == *"Auth"* ]]
 }
