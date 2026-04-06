@@ -47,6 +47,15 @@ EOF
   chmod +x "$MOCK_BIN/$cmd_name"
 }
 
+# Helper: create mocks for the platform-appropriate TTS command
+create_platform_tts_mock() {
+  case "$(uname -s)" in
+    Darwin)  create_tts_mock "say" ;;
+    Linux)   create_tts_mock "espeak" ;;
+    *)       create_tts_mock "say" ;;
+  esac
+}
+
 @test "exits 0 with no arguments" {
   run bash "$VOICE_SCRIPT"
 
@@ -82,7 +91,7 @@ VOICE_MUTED=1'
 }
 
 @test "template substitution works" {
-  create_tts_mock "say"
+  create_platform_tts_mock
 
   write_voice_config 'VOICE_ENABLED=1
 VOICE_MUTED=0
@@ -121,7 +130,7 @@ VOICE_MUTED=0'
 }
 
 @test "uses detected language from second argument" {
-  create_tts_mock "say"
+  create_platform_tts_mock
 
   write_voice_config 'VOICE_ENABLED=1
 VOICE_AUTO_LANG=1
@@ -137,7 +146,7 @@ VOICE_TEMPLATE='
 }
 
 @test "falls back to VOICE_LANG when auto-detect disabled" {
-  create_tts_mock "say"
+  create_platform_tts_mock
 
   write_voice_config 'VOICE_ENABLED=1
 VOICE_AUTO_LANG=0
@@ -154,7 +163,7 @@ VOICE_TEMPLATE='
 }
 
 @test "uses custom VOICE_TEMPLATE over auto-detection" {
-  create_tts_mock "say"
+  create_platform_tts_mock
 
   write_voice_config 'VOICE_ENABLED=1
 VOICE_AUTO_LANG=1
