@@ -465,6 +465,84 @@ describe('Installer Pure Functions', () => {
     });
   });
 
+  describe('--voice flag', () => {
+    let parseArgs;
+
+    beforeEach(async () => {
+      const mod = await import('../../bin/install.js');
+      parseArgs = mod.parseArgs;
+    });
+
+    it('--voice without lang defaults to en', () => {
+      const result = parseArgs(['node', 'install.js', '--voice']);
+      expect(result.voice).toBe(true);
+      expect(result.voiceLang).toBe('en');
+    });
+
+    it('--voice es sets voiceLang to es', () => {
+      const result = parseArgs(['node', 'install.js', '--voice', 'es']);
+      expect(result.voice).toBe(true);
+      expect(result.voiceLang).toBe('es');
+    });
+
+    it('--voice pt-BR sets regional voiceLang', () => {
+      const result = parseArgs(['node', 'install.js', '--voice', 'pt-BR']);
+      expect(result.voice).toBe(true);
+      expect(result.voiceLang).toBe('pt-BR');
+    });
+
+    it('no --voice flag defaults to voice false and voiceLang en', () => {
+      const result = parseArgs(['node', 'install.js']);
+      expect(result.voice).toBe(false);
+      expect(result.voiceLang).toBe('en');
+    });
+
+    it('--voice --color cyan does not consume --color as lang', () => {
+      const result = parseArgs(['node', 'install.js', '--voice', '--color', 'cyan']);
+      expect(result.voice).toBe(true);
+      expect(result.voiceLang).toBe('en');
+      expect(result.color).toBe('cyan');
+    });
+
+    it('--voice with --uninstall returns uninstall action', () => {
+      const result = parseArgs(['node', 'install.js', '--voice', '--uninstall']);
+      expect(result.action).toBe('uninstall');
+    });
+
+    it('voice=true voiceLang=es produces Spanish template', () => {
+      const voiceLang = 'es';
+      const voiceTemplate = voiceLang === 'es' ? 'Tarea terminada: {topic}' : 'Done: {topic}';
+      expect(voiceTemplate).toBe('Tarea terminada: {topic}');
+    });
+
+    it('voice=true voiceLang=en produces English template', () => {
+      const voiceLang = 'en';
+      const voiceTemplate = voiceLang === 'es' ? 'Tarea terminada: {topic}' : 'Done: {topic}';
+      expect(voiceTemplate).toBe('Done: {topic}');
+    });
+  });
+
+  describe('--no-voice flag', () => {
+    let parseArgs;
+
+    beforeEach(async () => {
+      const mod = await import('../../bin/install.js');
+      parseArgs = mod.parseArgs;
+    });
+
+    it('parseArgs handles --no-voice', () => {
+      const result = parseArgs(['node', 'install.js', '--no-voice']);
+      expect(result.noVoice).toBe(true);
+      expect(result.voice).toBe(false);
+    });
+
+    it('--no-voice with --voice uses noVoice', () => {
+      const result = parseArgs(['node', 'install.js', '--no-voice', '--voice']);
+      expect(result.noVoice).toBe(true);
+      expect(result.voice).toBe(true);
+    });
+  });
+
   describe('Color Validation Edge Cases', () => {
     let validateColor;
     

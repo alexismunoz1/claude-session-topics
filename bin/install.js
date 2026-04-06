@@ -36,6 +36,8 @@ const DEST_WRAPPER = path.join(TOPICS_DIR, 'wrapper-statusline.sh');
 const DEST_HOOK_SCRIPT = path.join(TOPICS_DIR, 'auto-topic-hook.sh');
 const ORIG_CMD_FILE = path.join(TOPICS_DIR, '.original-statusline-cmd');
 const COLOR_CONFIG = path.join(TOPICS_DIR, '.color-config');
+const DEST_VOICE_NOTIFY = path.join(TOPICS_DIR, 'voice-notify.sh');
+const VOICE_CONFIG = path.join(TOPICS_DIR, '.voice-config');
 const SKILLS_DIR = path.join(HOME, '.claude', 'skills');
 const SETTINGS_FILE = path.join(HOME, '.claude', 'settings.json');
 
@@ -44,7 +46,8 @@ const SETTINGS_FILE = path.join(HOME, '.claude', 'settings.json');
 const SRC_STATUSLINE = path.join(__dirname, '..', 'scripts', 'statusline.sh');
 const SRC_HOOK_SCRIPT = path.join(__dirname, '..', 'scripts', 'auto-topic-hook.sh');
 const SRC_FIND_PID = path.join(__dirname, '..', 'scripts', 'find-claude-pid.sh');
-const SRC_EXTRACT_TOPIC = path.join(__dirname, '..', 'scripts', 'extract_topic.py');
+const SRC_EXTRACT_TOPIC = path.join(__dirname, '..', 'scripts', 'extract_topic.sh');
+const SRC_VOICE_NOTIFY = path.join(__dirname, '..', 'scripts', 'voice-notify.sh');
 const SRC_SKILLS = path.join(__dirname, '..', 'skills');
 
 // ─── The statusline command that settings.json will reference ────────────────
@@ -149,7 +152,7 @@ function validateColor(value) {
 
 function parseArgs(argv) {
     const args = argv.slice(2);
-    const result = { action: 'install', color: null };
+    const result = { action: 'install', color: null, voice: false, voiceLang: 'en', noVoice: false };
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
@@ -174,6 +177,19 @@ function parseArgs(argv) {
                 err('--color requires a value (e.g., --color cyan)');
                 process.exit(1);
             }
+            continue;
+        }
+        if (arg === '--voice') {
+            result.voice = true;
+            if (i + 1 < args.length && /^[a-z]{2}(-[a-zA-Z]{2,})?$/.test(args[i + 1])) {
+                result.voiceLang = args[i + 1];
+                i++;
+            }
+            continue;
+        }
+        if (arg === '--no-voice') {
+            result.noVoice = true;
+            continue;
         }
     }
 
@@ -195,6 +211,9 @@ ${BOLD}Options:${RESET}
   --color <name>   Set topic color (red, green, yellow, blue, magenta,
                     cyan, white, orange, grey). Default: magenta
   --uninstall      Remove scripts, settings, and skills (preserves topic data)
+  --voice [lang]   Enable voice notifications when topic is detected
+                    (default lang: en). Example: --voice es
+  --no-voice       Disable voice notifications
   -h, --help       Show this help
 
 ${BOLD}What it does:${RESET}
@@ -212,7 +231,7 @@ ${BOLD}After install:${RESET}
 
 // ─── Install ─────────────────────────────────────────────────────────────────
 
-function install(color) {
+function install(color, voice, voiceLang, noVoice) {
     heading('Installing claude-session-topics');
 
     // ── Step 1: Check deps ───────────────────────────────────────────────
@@ -250,16 +269,16 @@ function install(color) {
     fs.chmodSync(DEST_HOOK_SCRIPT, 0o755);
     ok('Copied auto-topic-hook.sh');
 
-    // ── Step 4b: Copy extract_topic.py (required by hook) ────────────────
+    // ── Step 4b: Copy extract_topic.sh (required by hook) ────────────────
 
-    const DEST_EXTRACT_TOPIC = path.join(TOPICS_DIR, 'extract_topic.py');
+    const DEST_EXTRACT_TOPIC = path.join(TOPICS_DIR, 'extract_topic.sh');
     if (!fs.existsSync(SRC_EXTRACT_TOPIC)) {
-        err(`Source extract_topic.py not found: ${SRC_EXTRACT_TOPIC}`);
+        err(`Source extract_topic.sh not found: ${SRC_EXTRACT_TOPIC}`);
         process.exit(1);
     }
     fs.copyFileSync(SRC_EXTRACT_TOPIC, DEST_EXTRACT_TOPIC);
     fs.chmodSync(DEST_EXTRACT_TOPIC, 0o755);
-    ok('Copied extract_topic.py');
+    ok('Copied extract_topic.sh');
 
     // ── Step 4c: Copy find-claude-pid.sh (belt-and-suspenders) ──────────
 
@@ -270,6 +289,13 @@ function install(color) {
         ok('Copied find-claude-pid.sh');
     } else {
         info('find-claude-pid.sh not found in source (not required — PID lookup is inlined)');
+    }
+
+    // Always copy voice-notify.sh (available if user enables later)
+    if (fs.existsSync(SRC_VOICE_NOTIFY)) {
+        fs.copyFileSync(SRC_VOICE_NOTIFY, DEST_VOICE_NOTIFY);
+        fs.chmodSync(DEST_VOICE_NOTIFY, 0o755);
+        ok('Copied voice-notify.sh');
     }
 
     // ── Step 5: Configure statusline in settings.json ────────────────────
@@ -390,57 +416,34 @@ function install(color) {
         }
     }
 
-    // ── Step 8b: Check and install Python dependencies ─────────────────
-
-    heading('Checking Python dependencies');
-    const DEST_CHECK_DEPS = path.join(TOPICS_DIR, 'check_deps.py');
-    const SRC_CHECK_DEPS = path.join(__dirname, '..', 'scripts', 'check_deps.py');
-    if (fs.existsSync(SRC_CHECK_DEPS)) {
-        fs.copyFileSync(SRC_CHECK_DEPS, DEST_CHECK_DEPS);
-        fs.chmodSync(DEST_CHECK_DEPS, 0o755);
-        ok('Copied check_deps.py');
-    }
-
-    // Install YAKE
-    let yakeInstalled = false;
-    try {
-        execSync('python3 -c "import yake"', { stdio: 'pipe' });
-        ok('YAKE is installed');
-        yakeInstalled = true;
-    } catch {
-        info('YAKE not found, attempting automatic installation...');
-
-        const installCommands = [
-            { cmd: 'pip3 install yake --user', desc: 'with --user flag' },
-            { cmd: 'pip3 install yake --break-system-packages --user', desc: 'with --break-system-packages' },
-            { cmd: 'python3 -m pip install yake --user', desc: 'using python3 -m pip' },
-        ];
-
-        for (const { cmd, desc } of installCommands) {
-            try {
-                execSync(cmd, { stdio: 'pipe' });
-                ok(`YAKE installed automatically (${desc})`);
-                yakeInstalled = true;
-                break;
-            } catch {
-                // Try next command
-            }
-        }
-    }
-
-    if (!yakeInstalled) {
-        warn('YAKE could not be installed automatically');
-        console.log(`\n  ${BOLD}To install manually:${RESET}`);
-        console.log(`    ${CYAN}pip3 install yake${RESET}`);
-        console.log(`\n  Or with --break-system-packages if needed:`);
-        console.log(`    ${CYAN}pip3 install yake --break-system-packages --user${RESET}\n`);
-        console.log(`  ${YELLOW}Note:${RESET} The plugin will still work with reduced functionality.`);
-        console.log(`        Installing YAKE is recommended for best results.\n`);
-    }
-
     if (color) {
         fs.writeFileSync(COLOR_CONFIG, color, { encoding: 'utf8', mode: 0o600 });
         ok(`Topic color set to: ${BOLD}${color}${RESET}`);
+    }
+
+    // Voice config (only when --voice flag used)
+    if (voice) {
+        const configContent = [
+            '# Voice notification config for claude-session-topics',
+            'VOICE_ENABLED=1',
+            `VOICE_LANG=${voiceLang}`,
+            'VOICE_NAME=',
+            'VOICE_TEMPLATE=',
+            'VOICE_AUTO_LANG=1',
+            'VOICE_MUTED=0',
+        ].join('\n') + '\n';
+        fs.writeFileSync(VOICE_CONFIG, configContent, { encoding: 'utf8', mode: 0o644 });
+        ok(`Voice notifications enabled (language: ${voiceLang})`);
+    }
+
+    // Disable voice (remove config file)
+    if (noVoice) {
+        if (fs.existsSync(VOICE_CONFIG)) {
+            fs.unlinkSync(VOICE_CONFIG);
+            ok('Voice notifications disabled');
+        } else {
+            info('Voice notifications were not enabled');
+        }
     }
 
     // ── Step 10: Summary ─────────────────────────────────────────────────
@@ -517,8 +520,8 @@ function uninstall() {
     // ── Step 2: Delete scripts ───────────────────────────────────────────
 
     const DEST_FIND_PID = path.join(TOPICS_DIR, 'find-claude-pid.sh');
-    const DEST_EXTRACT_TOPIC = path.join(TOPICS_DIR, 'extract_topic.py');
-    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, DEST_FIND_PID, DEST_EXTRACT_TOPIC, ORIG_CMD_FILE];
+    const DEST_EXTRACT_TOPIC = path.join(TOPICS_DIR, 'extract_topic.sh');
+    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, DEST_FIND_PID, DEST_EXTRACT_TOPIC, ORIG_CMD_FILE, DEST_VOICE_NOTIFY, VOICE_CONFIG];
     for (const file of filesToDelete) {
         if (fs.existsSync(file)) {
             fs.unlinkSync(file);
@@ -599,14 +602,14 @@ function uninstall() {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 function main() {
-    const { action, color } = parseArgs(process.argv);
+    const { action, color, voice, voiceLang, noVoice } = parseArgs(process.argv);
 
     switch (action) {
         case 'help':
             showHelp();
             break;
         case 'install':
-            install(color);
+            install(color, voice, voiceLang, noVoice);
             break;
         case 'uninstall':
             uninstall();
