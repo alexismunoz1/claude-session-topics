@@ -22,3 +22,6 @@ coverage/
 
 # Debug logs
 hook-exec-debug.log
+
+# OpenSpec
+openspec/
