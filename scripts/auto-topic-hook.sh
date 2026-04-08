@@ -83,10 +83,23 @@ fi
 find "$HOME/.claude/session-topics" -maxdepth 1 -name '.voice-announced-*' -mmin +1440 -delete 2>/dev/null || true
 find "$HOME/.claude/session-topics" -maxdepth 1 -name '.stop-count-*' -mmin +1440 -delete 2>/dev/null || true
 
-# ── Fast path: topic already exists for this session
+# ── Topic file and voice marker
 TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
 VOICE_ANNOUNCED="$HOME/.claude/session-topics/.voice-announced-${SESSION_ID}"
+
+# ── Stop-count (incremented on EVERY stop, before topic-exists check)
+STOP_COUNT_FILE="$HOME/.claude/session-topics/.stop-count-${SESSION_ID}"
+STOP_COUNT=0
+if [ -f "$STOP_COUNT_FILE" ]; then
+    STOP_COUNT=$(cat "$STOP_COUNT_FILE" 2>/dev/null | tr -cd '0-9')
+    STOP_COUNT="${STOP_COUNT:-0}"
+fi
+STOP_COUNT=$((STOP_COUNT + 1))
+echo "$STOP_COUNT" > "$STOP_COUNT_FILE"
+
+# ── Topic already exists: voice announcement + periodic re-evaluation
 if [ -f "$TOPIC_FILE" ] && [ -s "$TOPIC_FILE" ]; then
+    # Voice announcement on first stop (unchanged)
     if [ ! -f "$VOICE_ANNOUNCED" ]; then
         TOPIC=$(cat "$TOPIC_FILE")
         VOICE_SCRIPT="$SCRIPT_DIR/voice-notify.sh"
@@ -95,24 +108,49 @@ if [ -f "$TOPIC_FILE" ] && [ -s "$TOPIC_FILE" ]; then
             touch "$VOICE_ANNOUNCED"
         fi
     fi
+
+    # Re-evaluation check: every REEVAL_INTERVAL stops
+    REEVAL_CONFIG="$HOME/.claude/session-topics/.reeval-interval"
+    REEVAL_INTERVAL=5
+    if [ -f "$REEVAL_CONFIG" ]; then
+        REEVAL_INTERVAL=$(cat "$REEVAL_CONFIG" 2>/dev/null | tr -cd '0-9')
+        REEVAL_INTERVAL="${REEVAL_INTERVAL:-5}"
+    fi
+
+    if [ $((STOP_COUNT % REEVAL_INTERVAL)) -ne 0 ]; then
+        exit 0
+    fi
+
+    # Re-extract topic from latest user message
+    [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ] && exit 0
+    CURRENT_TOPIC=$(cat "$TOPIC_FILE")
+    RAW=$(bash "$SCRIPT_DIR/extract_topic.sh" "$TRANSCRIPT_PATH" --latest 2>/dev/null || echo "")
+
+    if [[ "$RAW" == *:* ]]; then
+        NEW_TOPIC="${RAW#*:}"
+    else
+        NEW_TOPIC="$RAW"
+    fi
+
+    # Sanitize
+    NEW_TOPIC=$(printf '%s' "$NEW_TOPIC" | sed "s/[^a-zA-Z0-9àáâãäåèéêëìíîïòóôõöùúûüýÿñçÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝÑÇ .,:!?'-]//g" | cut -c1-50)
+
+    # Update only if different and non-empty
+    if [ -n "$NEW_TOPIC" ] && [ "$NEW_TOPIC" != "$CURRENT_TOPIC" ]; then
+        printf '%s\n' "$NEW_TOPIC" > "$TOPIC_FILE"
+        debug_log "hook: re-evaluated topic '$CURRENT_TOPIC' -> '$NEW_TOPIC'"
+    fi
+
     exit 0
 fi
 
-# ── Stop-count deferral: let auto-topic skill generate a topic before falling back
+# ── Deferral for initial topic: let auto-topic skill generate a topic before falling back
 DEFER_CONFIG="$HOME/.claude/session-topics/.defer-config"
-STOP_COUNT_FILE="$HOME/.claude/session-topics/.stop-count-${SESSION_ID}"
 DEFER_STOPS=1
 if [ -f "$DEFER_CONFIG" ]; then
     DEFER_STOPS=$(cat "$DEFER_CONFIG" 2>/dev/null | tr -cd '0-9')
     DEFER_STOPS="${DEFER_STOPS:-1}"
 fi
-STOP_COUNT=0
-if [ -f "$STOP_COUNT_FILE" ]; then
-    STOP_COUNT=$(cat "$STOP_COUNT_FILE" 2>/dev/null | tr -cd '0-9')
-    STOP_COUNT="${STOP_COUNT:-0}"
-fi
-STOP_COUNT=$((STOP_COUNT + 1))
-echo "$STOP_COUNT" > "$STOP_COUNT_FILE"
 if [ "$STOP_COUNT" -le "$DEFER_STOPS" ]; then
     debug_log "hook: deferring topic extraction (stop $STOP_COUNT/$DEFER_STOPS)"
     exit 0

@@ -4,7 +4,7 @@
 # Output: lang:Topic Words Here | Always exits 0.
 set -euo pipefail
 # shellcheck disable=SC2034
-VERSION=14
+VERSION=15
 trap 'echo ""; exit 0' ERR
 
 STOP_WORDS=" a an the and or but if in on at to for of is it be as do by we he she no so up my me am i not all can has its may new now old see way who how did get let say too use her him his our own any few got had man run set try two big end far put ask ago came done give goes gone into just keep know last like long look made make many much must name next only open over part real same show side some sure take tell than them then they this that used want well went what when also back been call come each even find first from good here high home kind left life line live more most move need once play read right seem self shall should since still such test text time turn very will with word work year about through during before after above below between under again further nor out off are was were being have has had does did would could should might being while where which there those these every other another some any thing things really just already always never using properly currently actually basically de el la los las un una unos unas del al en por para con sin sobre entre es son ser estar fue como mas pero esta este estos estas ese esa esos esas tiene puede hacer donde cuando ya hay todo otra otro si lo le se su sus nos les me te mi mis tu tus que y o ni e u eso esto algo solo muy aqui asi ahora despues antes cada sido quiero necesito puedes estaba estoy estan era eran fueron hice hizo tengo tienen tenia quiere quieren habia habian podria deberia viene vienen van iba paso pasa dice decir dicho hecho puedo dijo sabe saben creo cree siendo estando parece parecia queda quedan sigue siguen lleva llevan deja dejan pone ponen sale salen caso cosa cosas forma manera parte tipo tipos veces vez dia dias momento lado ejemplo dato datos cuenta problema bien mal mejor peor mayor menor nuevo nueva nuevos nuevas viejo gran grande pequeno poco poca pocos pocas mucho mucha muchos muchas tanto tanta tantos tantas varios varias cierto cierta propio propia mismo misma cual cuales quien quienes algun alguno alguna algunos algunas ningun ninguno ninguna ambos demas cuanto cuanta tal tales bastante bastantes demasiado demasiada primer primero primera segundo segunda ultimo ultima unico unica medio media recien ahi alla aca adonde abajo arriba afuera adentro adelante atras cerca lejos dentro fuera junto menos mientras entonces pues porque aunque sino tampoco ademas quiza quizas todavia aun tambien siempre nunca jamas apenas casi realmente basicamente solamente simplemente actualmente normalmente generalmente practicamente finalmente incluso segun hasta desde hacia mediante durante contra tras ante excepto salvo dado bueno buena buenos buenas malo mala malos malas claro verdad obvio posible necesario importante diferente siguiente anterior actual otro otra otros otras saber tener poder hacer decir querer poner salir venir dar ver ir oir caer traer creer leer parecer conocer saber sentir pensar vivir morir dormir pedir seguir servir llamar pasar hablar dejar contar tocar perder encontrar esperar mirar resultar tratar punto puntos cosa cosas lado cosas parte partes veces momento manera forma lugar resuelve resuelven ocurre ocurren sucede suceden existe existen muestra muestran funciona funcionan aparece aparecen permite permiten necesita necesitan intenta intentan mueve mueven abre abren cierra cierran cambia cambian agrega agregan quita quitan usa usan utiliza utilizan recibe reciben incluye incluyen muestra muestran genera generan requiere requieren devuelve devuelven pueda puedan puedo puedes puede pueden podria podrias podrian tenga tengan haga hagan vaya vayan sepa sepan diga digan quiera quieran haya hayan sea sean este esten fuera fuese pudiera pudieron tuviera tuvieron hiciera hicieron fuera fueron diera dieron dijera dijeron color negro blanco rojo azul verde amarillo gris rosa naranja morado oscuro claro image images imagen imagenes picture pictures photo photos foto fotos screenshot screenshots captura capturas png jpg jpeg gif svg tenemos herramienta herramientas recordando contenga informacion especifico especifica specifico remember remembering information specific specifically tool tools "
@@ -80,6 +80,42 @@ extract_user_text() {
     stripped="${stripped## }"; stripped="${stripped%% }"
     [[ -n "$stripped" ]] && echo "$text" && return
   done < "$file"
+}
+
+extract_latest_user_text() {
+  local file="$1"; [[ ! -f "$file" ]] && return
+  local last_text=""
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    local role text content_type
+    role=$(echo "$line" | jq -r '.role // empty' 2>/dev/null) || continue
+    if [[ "$role" == "user" ]]; then
+      content_type=$(echo "$line" | jq -r '.content | type' 2>/dev/null) || continue
+      if [[ "$content_type" == "string" ]]; then
+        text=$(echo "$line" | jq -r '.content' 2>/dev/null)
+      elif [[ "$content_type" == "array" ]]; then
+        text=$(echo "$line" | jq -r '[.content[] | select(.type=="text") | .text] | first // empty' 2>/dev/null)
+      else continue; fi
+    else
+      local msg_type
+      msg_type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null) || continue
+      if [[ "$msg_type" == "human" || "$msg_type" == "user" ]]; then
+        content_type=$(echo "$line" | jq -r '.message.content | type' 2>/dev/null) || continue
+        if [[ "$content_type" == "string" ]]; then
+          text=$(echo "$line" | jq -r '.message.content' 2>/dev/null)
+        elif [[ "$content_type" == "array" ]]; then
+          text=$(echo "$line" | jq -r '[.message.content[] | select(.type=="text") | .text] | first // empty' 2>/dev/null)
+        else continue; fi
+      else continue; fi
+    fi
+    [[ -z "$text" ]] && continue
+    local stripped
+    stripped=$(echo "$text" | perl -0pe 's/<(\w[\w-]*)(?:\s[^>]*)?>[\s\S]*?<\/\1>//g' 2>/dev/null || echo "$text")
+    stripped=$(echo "$stripped" | sed 's/<[^>]*>//g' | tr -s '[:space:]' ' ')
+    stripped="${stripped## }"; stripped="${stripped%% }"
+    [[ -n "$stripped" ]] && last_text="$text"
+  done < "$file"
+  [[ -n "$last_text" ]] && echo "$last_text"
 }
 
 detect_language() {
@@ -272,7 +308,11 @@ extract_topic() {
 main() {
   [[ $# -lt 1 ]] && echo "" && exit 0
   local text lang topic
-  text=$(extract_user_text "$1") || text=""
+  if [[ "${2:-}" == "--latest" ]]; then
+    text=$(extract_latest_user_text "$1") || text=""
+  else
+    text=$(extract_user_text "$1") || text=""
+  fi
   [[ -z "$text" ]] && echo "" && exit 0
   lang=$(detect_language "$text")
   topic=$(extract_topic "$text") || topic=""
