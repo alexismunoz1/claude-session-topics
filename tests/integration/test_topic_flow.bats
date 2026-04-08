@@ -11,16 +11,43 @@ load helper
 }
 
 @test "test_hook_creates_topic_file" {
+  # Disable deferral so the hook creates topic on first Stop
+  echo "0" > "$TOPICS_DIR/.defer-config"
+
   # Simulate Stop hook input JSON
   local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$PROJECT_ROOT/tests/fixtures/transcript-english.jsonl'"}'
-  
+
   # Run the hook script with the input
   run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
-  
+
   [ "$status" -eq 0 ]
   [ -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
-  
+
   # Verify the topic file contains content
+  local topic_content
+  topic_content=$(cat "$TOPICS_DIR/$TEST_SESSION_ID")
+  [ -n "$topic_content" ]
+
+  # Cleanup
+  rm -f "$TOPICS_DIR/.defer-config"
+}
+
+@test "test_hook_defers_topic_on_first_stop" {
+  # Ensure default deferral (no .defer-config = defer 1 stop)
+  rm -f "$TOPICS_DIR/.defer-config"
+
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$PROJECT_ROOT/tests/fixtures/transcript-english.jsonl'"}'
+
+  # First Stop: should NOT create topic file
+  run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
+  [ "$status" -eq 0 ]
+  [ ! -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
+
+  # Second Stop: should create topic file as fallback
+  run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
+  [ "$status" -eq 0 ]
+  [ -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
+
   local topic_content
   topic_content=$(cat "$TOPICS_DIR/$TEST_SESSION_ID")
   [ -n "$topic_content" ]
