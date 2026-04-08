@@ -2,112 +2,137 @@
 
 load helper
 
-@test "test_extract_topic_from_transcript" {
-  # Test that extract_topic.sh correctly extracts topic from English transcript
-  run bash "$PROJECT_ROOT/scripts/extract_topic.sh" "$PROJECT_ROOT/tests/fixtures/transcript-english.jsonl"
+@test "test_hook_writes_session_markers" {
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "/nonexistent"}'
+
+  run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"NeonDB"* ]] || [[ "$output" == *"Authentication"* ]] || [[ "$output" == *"Auth"* ]]
+  [ -f "$TOPICS_DIR/.active-session-id-$TEST_SESSION_ID" ]
 }
 
-@test "test_hook_creates_topic_file" {
-  # Disable deferral so the hook creates topic on first Stop
-  echo "0" > "$TOPICS_DIR/.defer-config"
+@test "test_hook_reads_custom_title_from_transcript" {
+  # Create a transcript with a custom-title entry
+  local tmpfile="$BATS_TEST_TMPDIR/transcript.jsonl"
+  echo '{"type": "user", "message": {"content": "Fix the login"}}' > "$tmpfile"
+  echo '{"type": "assistant", "message": {"content": "Sure"}}' >> "$tmpfile"
+  echo '{"type": "custom-title", "customTitle": "fix-login-redirect-bug", "sessionId": "'$TEST_SESSION_ID'"}' >> "$tmpfile"
 
-  # Simulate Stop hook input JSON
-  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$PROJECT_ROOT/tests/fixtures/transcript-english.jsonl'"}'
-
-  # Run the hook script with the input
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$tmpfile'"}'
   run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
 
   [ "$status" -eq 0 ]
   [ -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
 
-  # Verify the topic file contains content
   local topic_content
   topic_content=$(cat "$TOPICS_DIR/$TEST_SESSION_ID")
-  [ -n "$topic_content" ]
-
-  # Cleanup
-  rm -f "$TOPICS_DIR/.defer-config"
+  [[ "$topic_content" == "Fix Login Redirect Bug" ]]
 }
 
-@test "test_hook_defers_topic_on_first_stop" {
-  # Ensure default deferral (no .defer-config = defer 1 stop)
-  rm -f "$TOPICS_DIR/.defer-config"
+@test "test_hook_uses_latest_custom_title" {
+  # Transcript with multiple custom-title entries (title gets updated)
+  local tmpfile="$BATS_TEST_TMPDIR/transcript.jsonl"
+  echo '{"type": "custom-title", "customTitle": "initial-topic", "sessionId": "'$TEST_SESSION_ID'"}' > "$tmpfile"
+  echo '{"type": "user", "message": {"content": "Actually, fix the auth"}}' >> "$tmpfile"
+  echo '{"type": "custom-title", "customTitle": "fix-auth-token-refresh", "sessionId": "'$TEST_SESSION_ID'"}' >> "$tmpfile"
 
-  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$PROJECT_ROOT/tests/fixtures/transcript-english.jsonl'"}'
-
-  # First Stop: should NOT create topic file
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$tmpfile'"}'
   run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
+
+  [ "$status" -eq 0 ]
+
+  local topic_content
+  topic_content=$(cat "$TOPICS_DIR/$TEST_SESSION_ID")
+  [[ "$topic_content" == "Fix Auth Token Refresh" ]]
+}
+
+@test "test_hook_no_topic_without_custom_title" {
+  # Transcript without custom-title — no topic should be written
+  local tmpfile="$BATS_TEST_TMPDIR/transcript.jsonl"
+  echo '{"type": "user", "message": {"content": "Hello"}}' > "$tmpfile"
+  echo '{"type": "assistant", "message": {"content": "Hi"}}' >> "$tmpfile"
+
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$tmpfile'"}'
+  run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
+
   [ "$status" -eq 0 ]
   [ ! -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
+}
 
-  # Second Stop: should create topic file as fallback
+@test "test_hook_preserves_existing_topic" {
+  # If topic already exists (set by skill), hook should not overwrite it
+  echo "Skill Generated Topic" > "$TOPICS_DIR/$TEST_SESSION_ID"
+
+  local tmpfile="$BATS_TEST_TMPDIR/transcript.jsonl"
+  echo '{"type": "custom-title", "customTitle": "different-hook-title", "sessionId": "'$TEST_SESSION_ID'"}' > "$tmpfile"
+
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$tmpfile'"}'
   run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
+
   [ "$status" -eq 0 ]
-  [ -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
 
   local topic_content
   topic_content=$(cat "$TOPICS_DIR/$TEST_SESSION_ID")
-  [ -n "$topic_content" ]
+  [[ "$topic_content" == "Skill Generated Topic" ]]
+}
+
+@test "test_hook_truncates_long_titles" {
+  local tmpfile="$BATS_TEST_TMPDIR/transcript.jsonl"
+  echo '{"type": "custom-title", "customTitle": "this-is-a-very-long-title-that-should-be-truncated-to-fifty-characters-maximum", "sessionId": "'$TEST_SESSION_ID'"}' > "$tmpfile"
+
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$tmpfile'"}'
+  run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
+
+  [ "$status" -eq 0 ]
+
+  local topic_content
+  topic_content=$(cat "$TOPICS_DIR/$TEST_SESSION_ID")
+  [ ${#topic_content} -le 50 ]
 }
 
 @test "test_statusline_reads_topic" {
-  # Create a topic file for the test session
   echo "Test Topic" > "$TOPICS_DIR/$TEST_SESSION_ID"
-  
-  # Run statusline with JSON input containing session_id
+
   local statusline_input='{"session_id": "'$TEST_SESSION_ID'"}'
   run bash "$PROJECT_ROOT/scripts/statusline.sh" <<< "$statusline_input"
-  
+
   [ "$status" -eq 0 ]
   [[ "$output" == *"◆ Test Topic"* ]]
 }
 
+@test "test_statusline_reads_custom_title_fallback" {
+  # No topic file exists, but transcript has custom-title
+  local tmpfile="$BATS_TEST_TMPDIR/transcript.jsonl"
+  echo '{"type": "custom-title", "customTitle": "add-search-filter", "sessionId": "'$TEST_SESSION_ID'"}' > "$tmpfile"
+
+  local statusline_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$tmpfile'"}'
+  run bash "$PROJECT_ROOT/scripts/statusline.sh" <<< "$statusline_input"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Add Search Filter"* ]]
+}
+
 @test "test_statusline_with_color" {
-  # Create topic file
   echo "Colored Topic" > "$TOPICS_DIR/$TEST_SESSION_ID"
-  
-  # Set color to cyan via config file
   echo "cyan" > "$TOPICS_DIR/.color-config"
-  
-  # Run statusline
+
   local statusline_input='{"session_id": "'$TEST_SESSION_ID'"}'
   run bash "$PROJECT_ROOT/scripts/statusline.sh" <<< "$statusline_input"
-  
+
   [ "$status" -eq 0 ]
-  # Cyan ANSI code is \033[36m
   [[ "$output" == *$'\033[36m'* ]] || [[ "$output" == *"[36m"* ]]
   [[ "$output" == *"◆ Colored Topic"* ]]
 }
 
-@test "test_stale_files_cleanup" {
-  # Create a stale file (older than 7 days) - macOS compatible
-  local stale_session_id="stale-session-test"
-  echo "Stale Topic" > "$TOPICS_DIR/$stale_session_id"
-  # Use touch -t for macOS compatibility (YYYYMMDDhhmm format)
-  touch -t $(date -v-8d +%Y%m%d%H%M) "$TOPICS_DIR/$stale_session_id" 2>/dev/null || \
-    touch -t $(date -d "8 days ago" +%Y%m%d%H%M 2>/dev/null || echo "202401010000") "$TOPICS_DIR/$stale_session_id"
-  
-  # Create a fresh file
-  echo "Fresh Topic" > "$TOPICS_DIR/$TEST_SESSION_ID"
-  
-  # Run statusline (which triggers cleanup)
-  local statusline_input='{"session_id": "'$TEST_SESSION_ID'"}'
-  run bash "$PROJECT_ROOT/scripts/statusline.sh" <<< "$statusline_input"
-  
+@test "test_hook_no_session_id_exits_cleanly" {
+  local hook_input='{"session_id": "", "transcript_path": "/nonexistent"}'
+
+  run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
+
   [ "$status" -eq 0 ]
-  # Note: Cleanup runs with atomic lock, so stale file may or may not be deleted
-  # depending on timing. Fresh file should always exist.
-  [ -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
 }
 
 @test "test_pid_detection" {
-  # Test that find_claude_pid function doesn't fail
-  # We'll source the script and check the function exists and runs without error
-  
-  # Create a simple test script that sources the function
   local test_script="$TEST_DIR/test_pid.sh"
   cat > "$test_script" << 'EOF'
 find_claude_pid() {
@@ -125,15 +150,10 @@ find_claude_pid() {
   done
   echo ""
 }
-
-# Test the function
 result=$(find_claude_pid)
-# Function should complete without error (may or may not find a PID)
 exit 0
 EOF
-  
+
   run bash "$test_script"
-  
-  # Should complete successfully (exit code 0)
   [ "$status" -eq 0 ]
 }

@@ -152,7 +152,6 @@ echo -e "${BLUE}Installation Files:${NC}"
 check_dir "$HOME/.claude/session-topics" "Topics directory"
 check_file "$HOME/.claude/session-topics/statusline.sh" "Statusline script"
 check_file "$HOME/.claude/session-topics/auto-topic-hook.sh" "Auto-topic hook"
-check_file "$HOME/.claude/session-topics/extract_topic.sh" "Topic extractor"
 echo ""
 
 # Skills
@@ -200,28 +199,24 @@ else
 fi
 echo ""
 
-# Test extraction
-echo -e "${BLUE}Testing Topic Extraction:${NC}"
+# Test custom-title reading
+echo -e "${BLUE}Testing Custom-Title Reading:${NC}"
 TEST_TRANSCRIPT=$(mktemp)
 cat > "$TEST_TRANSCRIPT" << 'EOF'
-{"role": "user", "content": "Test message for diagnostics"}
+{"type": "user", "message": {"content": "Test message"}}
+{"type": "custom-title", "customTitle": "test-diagnostics-topic"}
 EOF
 
-if [ -f "$HOME/.claude/session-topics/extract_topic.sh" ]; then
-    TOPIC_RESULT=$(bash "$HOME/.claude/session-topics/extract_topic.sh" "$TEST_TRANSCRIPT" 2>&1) || TOPIC_RESULT="ERROR"
-    if [ -n "$TOPIC_RESULT" ] && [ "$TOPIC_RESULT" != "ERROR" ]; then
-        echo -e "${GREEN}✓${NC} Topic extraction: working (result: '$TOPIC_RESULT')"
-        ((CHECKS_PASSED++))
-        log_info "Topic extraction working"
-    else
-        echo -e "${YELLOW}⚠${NC} Topic extraction: returned empty (may need dependencies)"
-        ((CHECKS_WARNINGS++))
-        log_warn "Topic extraction returned empty"
-    fi
+CUSTOM_TITLE=$(grep '"custom-title"' "$TEST_TRANSCRIPT" 2>/dev/null | tail -1 | jq -r '.customTitle // ""' 2>/dev/null || echo "")
+if [ -n "$CUSTOM_TITLE" ]; then
+    TOPIC=$(echo "$CUSTOM_TITLE" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+    echo -e "${GREEN}✓${NC} Custom-title reading: working (result: '$TOPIC')"
+    ((CHECKS_PASSED++))
+    log_info "Custom-title reading working"
 else
-    echo -e "${RED}✗${NC} Topic extraction: script not found"
-    ((CHECKS_FAILED++))
-    log_error "Topic extractor not found"
+    echo -e "${YELLOW}⚠${NC} Custom-title reading: could not extract (check jq)"
+    ((CHECKS_WARNINGS++))
+    log_warn "Custom-title reading failed"
 fi
 rm -f "$TEST_TRANSCRIPT"
 echo ""

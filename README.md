@@ -96,6 +96,15 @@ The default topic color is bold magenta. Three ways to change it:
   export CLAUDE_TOPIC_COLOR="cyan"
   ```
 
+## Token usage
+
+This package installs two skills to `~/.claude/skills/`:
+
+- **auto-topic** — loaded on every conversation (needed to track topic changes as you work). This is the core skill that keeps the statusline topic up to date.
+- **set-topic** — a minimal stub (~15 lines) that enables the `/set-topic` command. It delegates all logic to auto-topic, so its token footprint is negligible.
+
+The initial topic extraction runs entirely via a Stop hook using `jq` + `awk` — no model tokens spent. Only the auto-topic skill uses model tokens, and only when it detects that the conversation has shifted to a different subject.
+
 ## Usage
 
 ### Auto-topic (automatic)

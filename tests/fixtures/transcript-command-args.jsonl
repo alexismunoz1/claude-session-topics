@@ -1,4 +1,0 @@
-{"role": "user", "content": "<command-name>/develop</command-name>\n<command-args>Fix login flow</command-args>"}
-{"role": "assistant", "content": "I'll analyze the login flow and identify the issues. Let me start by examining the authentication sequence."}
-{"role": "user", "content": "<command-name>/test</command-name>\n<command-args>Run integration tests</command-args>"}
-{"role": "assistant", "content": "Running integration tests now. I'll check the results and report any failures."}

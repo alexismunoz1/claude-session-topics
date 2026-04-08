@@ -33,19 +33,16 @@ if [ -f "$TOPIC_FILE" ]; then
     debug_log "statusline: found topic '$TOPIC' from file"
 fi
 
-# If topic file doesn't exist, try to extract from transcript directly
+# If topic file doesn't exist, try to read Claude Code's internal custom-title
 if [ -z "$TOPIC" ] && [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
-    RAW=$(bash "$SCRIPT_DIR/extract_topic.sh" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
-    if [ -n "$RAW" ]; then
-        if [[ "$RAW" == *:* ]]; then
-            TOPIC="${RAW#*:}"
-        else
-            TOPIC="$RAW"
-        fi
+    CUSTOM_TITLE=$(grep '"custom-title"' "$TRANSCRIPT_PATH" 2>/dev/null | tail -1 | jq -r '.customTitle // ""' 2>/dev/null || echo "")
+    if [ -n "$CUSTOM_TITLE" ]; then
+        TOPIC=$(echo "$CUSTOM_TITLE" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+        TOPIC=$(echo "$TOPIC" | cut -c1-50)
         if [ -n "$TOPIC" ]; then
             mkdir -p "$HOME/.claude/session-topics"
             printf '%s\n' "$TOPIC" > "$TOPIC_FILE"
-            debug_log "statusline: extracted topic '$TOPIC' from transcript"
+            debug_log "statusline: extracted topic '$TOPIC' from custom-title"
         fi
     fi
 fi

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# ── Stop hook: set session topic from first user message
+# ── Stop hook: set session topic from Claude Code's internal custom-title
 # Receives Stop event JSON on stdin: {"session_id": "...", "transcript_path": "..."}
 
 # ── Load common functions (with fallback)
@@ -11,7 +11,6 @@ if [ -f "$SCRIPT_DIR/../lib/common.sh" ]; then
 elif [ -f "$SCRIPT_DIR/lib/common.sh" ]; then
   source "$SCRIPT_DIR/lib/common.sh"
 else
-  # Fallback: define minimal required functions locally
   debug_log() { :; }
   find_claude_pid() {
     local pid=$$
@@ -32,11 +31,7 @@ fi
 
 input=$(cat)
 
-# ── Get HOOK_VERSION from extract_topic.sh
-HOOK_VERSION=$(grep '^VERSION=' "$SCRIPT_DIR/extract_topic.sh" 2>/dev/null | head -1 | cut -d= -f2)
-HOOK_VERSION="${HOOK_VERSION:-0}"
-
-# ── Parse JSON fields (session_id is the primary identifier)
+# ── Parse JSON fields
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
 TRANSCRIPT_PATH=$(echo "$input" | jq -r '.transcript_path // ""')
 
@@ -61,7 +56,6 @@ else
 fi
 
 # ── Write active session marker keyed by session_id (race-condition-safe)
-# This is the primary mechanism — works regardless of PID detection.
 echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-id-$SESSION_ID"
 debug_log "hook: wrote .active-session-id-$SESSION_ID"
 
@@ -70,16 +64,9 @@ CLAUDE_PID=$(find_claude_pid)
 if [ -n "$CLAUDE_PID" ]; then
   echo "$SESSION_ID" > "$HOME/.claude/session-topics/.active-session-$CLAUDE_PID"
   debug_log "hook: wrote .active-session-$CLAUDE_PID (compat)"
-else
-  debug_log "hook: PID detection failed, session_id marker is sufficient"
 fi
 
-# ── Version-based cache invalidation: if hook version changed, wipe stale topics
-VERSION_FILE="$HOME/.claude/session-topics/.hook-version"
-if [ ! -f "$VERSION_FILE" ] || [ "$(cat "$VERSION_FILE" 2>/dev/null)" != "$HOOK_VERSION" ]; then
-    find "$HOME/.claude/session-topics" -maxdepth 1 -type f ! -name '.*' ! -name '*.sh' ! -name '*.py' -mmin +1 -delete 2>/dev/null || true
-    echo "$HOOK_VERSION" > "$VERSION_FILE"
-fi
+# ── Cleanup old markers
 find "$HOME/.claude/session-topics" -maxdepth 1 -name '.voice-announced-*' -mmin +1440 -delete 2>/dev/null || true
 find "$HOME/.claude/session-topics" -maxdepth 1 -name '.stop-count-*' -mmin +1440 -delete 2>/dev/null || true
 
@@ -87,19 +74,9 @@ find "$HOME/.claude/session-topics" -maxdepth 1 -name '.stop-count-*' -mmin +144
 TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
 VOICE_ANNOUNCED="$HOME/.claude/session-topics/.voice-announced-${SESSION_ID}"
 
-# ── Stop-count (incremented on EVERY stop, before topic-exists check)
-STOP_COUNT_FILE="$HOME/.claude/session-topics/.stop-count-${SESSION_ID}"
-STOP_COUNT=0
-if [ -f "$STOP_COUNT_FILE" ]; then
-    STOP_COUNT=$(cat "$STOP_COUNT_FILE" 2>/dev/null | tr -cd '0-9')
-    STOP_COUNT="${STOP_COUNT:-0}"
-fi
-STOP_COUNT=$((STOP_COUNT + 1))
-echo "$STOP_COUNT" > "$STOP_COUNT_FILE"
-
-# ── Topic already exists: voice announcement + periodic re-evaluation
+# ── If topic already exists (set by skill or previous hook run)
 if [ -f "$TOPIC_FILE" ] && [ -s "$TOPIC_FILE" ]; then
-    # Voice announcement on first stop (unchanged)
+    # Voice announcement on first stop
     if [ ! -f "$VOICE_ANNOUNCED" ]; then
         TOPIC=$(cat "$TOPIC_FILE")
         VOICE_SCRIPT="$SCRIPT_DIR/voice-notify.sh"
@@ -108,80 +85,29 @@ if [ -f "$TOPIC_FILE" ] && [ -s "$TOPIC_FILE" ]; then
             touch "$VOICE_ANNOUNCED"
         fi
     fi
-
-    # Re-evaluation check: every REEVAL_INTERVAL stops
-    REEVAL_CONFIG="$HOME/.claude/session-topics/.reeval-interval"
-    REEVAL_INTERVAL=5
-    if [ -f "$REEVAL_CONFIG" ]; then
-        REEVAL_INTERVAL=$(cat "$REEVAL_CONFIG" 2>/dev/null | tr -cd '0-9')
-        REEVAL_INTERVAL="${REEVAL_INTERVAL:-5}"
-    fi
-
-    if [ $((STOP_COUNT % REEVAL_INTERVAL)) -ne 0 ]; then
-        exit 0
-    fi
-
-    # Re-extract topic from latest user message
-    [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ] && exit 0
-    CURRENT_TOPIC=$(cat "$TOPIC_FILE")
-    RAW=$(bash "$SCRIPT_DIR/extract_topic.sh" "$TRANSCRIPT_PATH" --latest 2>/dev/null || echo "")
-
-    if [[ "$RAW" == *:* ]]; then
-        NEW_TOPIC="${RAW#*:}"
-    else
-        NEW_TOPIC="$RAW"
-    fi
-
-    # Sanitize
-    NEW_TOPIC=$(printf '%s' "$NEW_TOPIC" | sed "s/[^a-zA-Z0-9àáâãäåèéêëìíîïòóôõöùúûüýÿñçÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝÑÇ .,:!?'-]//g" | cut -c1-50)
-
-    # Update only if different and non-empty
-    if [ -n "$NEW_TOPIC" ] && [ "$NEW_TOPIC" != "$CURRENT_TOPIC" ]; then
-        printf '%s\n' "$NEW_TOPIC" > "$TOPIC_FILE"
-        debug_log "hook: re-evaluated topic '$CURRENT_TOPIC' -> '$NEW_TOPIC'"
-    fi
-
     exit 0
 fi
 
-# ── Deferral for initial topic: let auto-topic skill generate a topic before falling back
-DEFER_CONFIG="$HOME/.claude/session-topics/.defer-config"
-DEFER_STOPS=1
-if [ -f "$DEFER_CONFIG" ]; then
-    DEFER_STOPS=$(cat "$DEFER_CONFIG" 2>/dev/null | tr -cd '0-9')
-    DEFER_STOPS="${DEFER_STOPS:-1}"
-fi
-if [ "$STOP_COUNT" -le "$DEFER_STOPS" ]; then
-    debug_log "hook: deferring topic extraction (stop $STOP_COUNT/$DEFER_STOPS)"
-    exit 0
-fi
-
-# ── Extract topic from transcript
+# ── Extract topic from Claude Code's internal custom-title
 [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ] && exit 0
 
-RAW=$(bash "$SCRIPT_DIR/extract_topic.sh" "$TRANSCRIPT_PATH" 2>/dev/null || echo "")
+CUSTOM_TITLE=$(grep '"custom-title"' "$TRANSCRIPT_PATH" 2>/dev/null | tail -1 | jq -r '.customTitle // ""' 2>/dev/null || echo "")
 
-if [[ "$RAW" == *:* ]]; then
-    DETECTED_LANG="${RAW%%:*}"
-    TOPIC="${RAW#*:}"
-else
-    DETECTED_LANG="en"
-    TOPIC="$RAW"
-fi
+if [ -n "$CUSTOM_TITLE" ]; then
+    # Convert kebab-case to Title Case: "fix-signin-mobile" → "Fix Signin Mobile"
+    TOPIC=$(echo "$CUSTOM_TITLE" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+    TOPIC=$(echo "$TOPIC" | cut -c1-50)
 
-# ── Write topic
-if [ -n "$TOPIC" ]; then
-    # Sanitize: keep letters (incl. accented), digits, spaces, basic punctuation
-    TOPIC=$(printf '%s' "$TOPIC" | sed "s/[^a-zA-Z0-9àáâãäåèéêëìíîïòóôõöùúûüýÿñçÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝÑÇ .,:!?'-]//g" | cut -c1-50)
     if [ -n "$TOPIC" ]; then
-      printf '%s\n' "$TOPIC" > "$TOPIC_FILE"
-      debug_log "hook: wrote topic '$TOPIC' to $TOPIC_FILE"
-      # Voice notification (opt-in, non-blocking)
-      VOICE_SCRIPT="$SCRIPT_DIR/voice-notify.sh"
-      if [ -x "$VOICE_SCRIPT" ]; then
-          bash "$VOICE_SCRIPT" "$TOPIC" "$DETECTED_LANG" &>/dev/null &
-          touch "$VOICE_ANNOUNCED"
-      fi
+        printf '%s\n' "$TOPIC" > "$TOPIC_FILE"
+        debug_log "hook: wrote topic '$TOPIC' from custom-title"
+
+        # Voice notification (opt-in, non-blocking)
+        VOICE_SCRIPT="$SCRIPT_DIR/voice-notify.sh"
+        if [ -x "$VOICE_SCRIPT" ]; then
+            bash "$VOICE_SCRIPT" "$TOPIC" "" &>/dev/null &
+            touch "$VOICE_ANNOUNCED"
+        fi
     fi
 fi
 

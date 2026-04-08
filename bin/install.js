@@ -46,7 +46,6 @@ const SETTINGS_FILE = path.join(HOME, '.claude', 'settings.json');
 const SRC_STATUSLINE = path.join(__dirname, '..', 'scripts', 'statusline.sh');
 const SRC_HOOK_SCRIPT = path.join(__dirname, '..', 'scripts', 'auto-topic-hook.sh');
 const SRC_FIND_PID = path.join(__dirname, '..', 'scripts', 'find-claude-pid.sh');
-const SRC_EXTRACT_TOPIC = path.join(__dirname, '..', 'scripts', 'extract_topic.sh');
 const SRC_VOICE_NOTIFY = path.join(__dirname, '..', 'scripts', 'voice-notify.sh');
 const SRC_SKILLS = path.join(__dirname, '..', 'skills');
 
@@ -269,18 +268,7 @@ function install(color, voice, voiceLang, noVoice) {
     fs.chmodSync(DEST_HOOK_SCRIPT, 0o755);
     ok('Copied auto-topic-hook.sh');
 
-    // ── Step 4b: Copy extract_topic.sh (required by hook) ────────────────
-
-    const DEST_EXTRACT_TOPIC = path.join(TOPICS_DIR, 'extract_topic.sh');
-    if (!fs.existsSync(SRC_EXTRACT_TOPIC)) {
-        err(`Source extract_topic.sh not found: ${SRC_EXTRACT_TOPIC}`);
-        process.exit(1);
-    }
-    fs.copyFileSync(SRC_EXTRACT_TOPIC, DEST_EXTRACT_TOPIC);
-    fs.chmodSync(DEST_EXTRACT_TOPIC, 0o755);
-    ok('Copied extract_topic.sh');
-
-    // ── Step 4c: Copy find-claude-pid.sh (belt-and-suspenders) ──────────
+    // ── Step 4b: Copy find-claude-pid.sh (belt-and-suspenders) ──────────
 
     const DEST_FIND_PID = path.join(TOPICS_DIR, 'find-claude-pid.sh');
     if (fs.existsSync(SRC_FIND_PID)) {
@@ -520,8 +508,7 @@ function uninstall() {
     // ── Step 2: Delete scripts ───────────────────────────────────────────
 
     const DEST_FIND_PID = path.join(TOPICS_DIR, 'find-claude-pid.sh');
-    const DEST_EXTRACT_TOPIC = path.join(TOPICS_DIR, 'extract_topic.sh');
-    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, DEST_FIND_PID, DEST_EXTRACT_TOPIC, ORIG_CMD_FILE, DEST_VOICE_NOTIFY, VOICE_CONFIG];
+    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, DEST_FIND_PID, ORIG_CMD_FILE, DEST_VOICE_NOTIFY, VOICE_CONFIG];
     for (const file of filesToDelete) {
         if (fs.existsSync(file)) {
             fs.unlinkSync(file);

@@ -107,7 +107,6 @@ jobs:
       run: |
         test -f bin/install.js || (echo "Missing bin/install.js" && exit 1)
         test -f scripts/statusline.sh || (echo "Missing scripts/statusline.sh" && exit 1)
-        test -f scripts/extract_topic.sh || (echo "Missing scripts/extract_topic.sh" && exit 1)
         echo "All required files present"
 
   # Job 6: Integration (macOS)
