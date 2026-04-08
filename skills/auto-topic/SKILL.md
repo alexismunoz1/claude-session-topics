@@ -1,7 +1,7 @@
 ---
 name: auto-topic
 description: Use on EVERY user message to refine or update the session topic (2-4 words) when the conversation shifts to a different subject. The initial topic is set automatically by the Stop hook — this skill handles ongoing topic evolution.
-version: "3.2.1"
+version: "3.3.0"
 allowed-tools: [Bash]
 ---
 

@@ -3,7 +3,7 @@ name: set-topic
 description: Set or change the session topic displayed in the statusline
 argument-hint: <topic text>
 allowed-tools: [Bash]
-version: "3.2.1"
+version: "3.3.0"
 ---
 
 # Set Topic
