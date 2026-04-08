@@ -81,6 +81,7 @@ if [ ! -f "$VERSION_FILE" ] || [ "$(cat "$VERSION_FILE" 2>/dev/null)" != "$HOOK_
     echo "$HOOK_VERSION" > "$VERSION_FILE"
 fi
 find "$HOME/.claude/session-topics" -maxdepth 1 -name '.voice-announced-*' -mmin +1440 -delete 2>/dev/null || true
+find "$HOME/.claude/session-topics" -maxdepth 1 -name '.stop-count-*' -mmin +1440 -delete 2>/dev/null || true
 
 # ── Fast path: topic already exists for this session
 TOPIC_FILE="$HOME/.claude/session-topics/${SESSION_ID}"
@@ -94,6 +95,26 @@ if [ -f "$TOPIC_FILE" ] && [ -s "$TOPIC_FILE" ]; then
             touch "$VOICE_ANNOUNCED"
         fi
     fi
+    exit 0
+fi
+
+# ── Stop-count deferral: let auto-topic skill generate a topic before falling back
+DEFER_CONFIG="$HOME/.claude/session-topics/.defer-config"
+STOP_COUNT_FILE="$HOME/.claude/session-topics/.stop-count-${SESSION_ID}"
+DEFER_STOPS=1
+if [ -f "$DEFER_CONFIG" ]; then
+    DEFER_STOPS=$(cat "$DEFER_CONFIG" 2>/dev/null | tr -cd '0-9')
+    DEFER_STOPS="${DEFER_STOPS:-1}"
+fi
+STOP_COUNT=0
+if [ -f "$STOP_COUNT_FILE" ]; then
+    STOP_COUNT=$(cat "$STOP_COUNT_FILE" 2>/dev/null | tr -cd '0-9')
+    STOP_COUNT="${STOP_COUNT:-0}"
+fi
+STOP_COUNT=$((STOP_COUNT + 1))
+echo "$STOP_COUNT" > "$STOP_COUNT_FILE"
+if [ "$STOP_COUNT" -le "$DEFER_STOPS" ]; then
+    debug_log "hook: deferring topic extraction (stop $STOP_COUNT/$DEFER_STOPS)"
     exit 0
 fi
 

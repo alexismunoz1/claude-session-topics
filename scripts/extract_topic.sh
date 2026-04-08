@@ -4,10 +4,10 @@
 # Output: lang:Topic Words Here | Always exits 0.
 set -euo pipefail
 # shellcheck disable=SC2034
-VERSION=13
+VERSION=14
 trap 'echo ""; exit 0' ERR
 
-STOP_WORDS=" a an the and or but if in on at to for of is it be as do by we he she no so up my me am i not all can has its may new now old see way who how did get let say too use her him his our own any few got had man run set try two big end far put ask ago came done give goes gone into just keep know last like long look made make many much must name next only open over part real same show side some sure take tell than them then they this that used want well went what when also back been call come each even find first from good here high home kind left life line live more most move need once play read right seem self shall should since still such test text time turn very will with word work year about through during before after above below between under again further nor out off are was were being have has had does did would could should might being while where which there those these every other another some any thing things really just already always never using properly currently actually basically de el la los las un una unos unas del al en por para con sin sobre entre es son ser estar fue como mas pero esta este estos estas ese esa esos esas tiene puede hacer donde cuando ya hay todo otra otro si lo le se su sus nos les me te mi mis tu tus que y o ni e u eso esto algo solo muy aqui asi ahora despues antes cada sido quiero necesito puedes estaba estoy estan era eran fueron hice hizo tengo tienen tenia quiere quieren habia habian podria deberia viene vienen van iba paso pasa dice decir dicho hecho puedo dijo sabe saben creo cree siendo estando parece parecia queda quedan sigue siguen lleva llevan deja dejan pone ponen sale salen caso cosa cosas forma manera parte tipo tipos veces vez dia dias momento lado ejemplo dato datos cuenta problema bien mal mejor peor mayor menor nuevo nueva nuevos nuevas viejo gran grande pequeno poco poca pocos pocas mucho mucha muchos muchas tanto tanta tantos tantas varios varias cierto cierta propio propia mismo misma cual cuales quien quienes algun alguno alguna algunos algunas ningun ninguno ninguna ambos demas cuanto cuanta tal tales bastante bastantes demasiado demasiada primer primero primera segundo segunda ultimo ultima unico unica medio media recien ahi alla aca adonde abajo arriba afuera adentro adelante atras cerca lejos dentro fuera junto menos mientras entonces pues porque aunque sino tampoco ademas quiza quizas todavia aun tambien siempre nunca jamas apenas casi realmente basicamente solamente simplemente actualmente normalmente generalmente practicamente finalmente incluso segun hasta desde hacia mediante durante contra tras ante excepto salvo dado bueno buena buenos buenas malo mala malos malas claro verdad obvio posible necesario importante diferente siguiente anterior actual otro otra otros otras saber tener poder hacer decir querer poner salir venir dar ver ir oir caer traer creer leer parecer conocer saber sentir pensar vivir morir dormir pedir seguir servir llamar pasar hablar dejar contar tocar perder encontrar esperar mirar resultar tratar punto puntos cosa cosas lado cosas parte partes veces momento manera forma lugar resuelve resuelven ocurre ocurren sucede suceden existe existen muestra muestran funciona funcionan aparece aparecen permite permiten necesita necesitan intenta intentan mueve mueven abre abren cierra cierran cambia cambian agrega agregan quita quitan usa usan utiliza utilizan recibe reciben incluye incluyen muestra muestran genera generan requiere requieren devuelve devuelven pueda puedan puedo puedes puede pueden podria podrias podrian tenga tengan haga hagan vaya vayan sepa sepan diga digan quiera quieran haya hayan sea sean este esten fuera fuese pudiera pudieron tuviera tuvieron hiciera hicieron fuera fueron diera dieron dijera dijeron color negro blanco rojo azul verde amarillo gris rosa naranja morado oscuro claro image images imagen imagenes picture pictures photo photos foto fotos screenshot screenshots captura capturas png jpg jpeg gif svg "
+STOP_WORDS=" a an the and or but if in on at to for of is it be as do by we he she no so up my me am i not all can has its may new now old see way who how did get let say too use her him his our own any few got had man run set try two big end far put ask ago came done give goes gone into just keep know last like long look made make many much must name next only open over part real same show side some sure take tell than them then they this that used want well went what when also back been call come each even find first from good here high home kind left life line live more most move need once play read right seem self shall should since still such test text time turn very will with word work year about through during before after above below between under again further nor out off are was were being have has had does did would could should might being while where which there those these every other another some any thing things really just already always never using properly currently actually basically de el la los las un una unos unas del al en por para con sin sobre entre es son ser estar fue como mas pero esta este estos estas ese esa esos esas tiene puede hacer donde cuando ya hay todo otra otro si lo le se su sus nos les me te mi mis tu tus que y o ni e u eso esto algo solo muy aqui asi ahora despues antes cada sido quiero necesito puedes estaba estoy estan era eran fueron hice hizo tengo tienen tenia quiere quieren habia habian podria deberia viene vienen van iba paso pasa dice decir dicho hecho puedo dijo sabe saben creo cree siendo estando parece parecia queda quedan sigue siguen lleva llevan deja dejan pone ponen sale salen caso cosa cosas forma manera parte tipo tipos veces vez dia dias momento lado ejemplo dato datos cuenta problema bien mal mejor peor mayor menor nuevo nueva nuevos nuevas viejo gran grande pequeno poco poca pocos pocas mucho mucha muchos muchas tanto tanta tantos tantas varios varias cierto cierta propio propia mismo misma cual cuales quien quienes algun alguno alguna algunos algunas ningun ninguno ninguna ambos demas cuanto cuanta tal tales bastante bastantes demasiado demasiada primer primero primera segundo segunda ultimo ultima unico unica medio media recien ahi alla aca adonde abajo arriba afuera adentro adelante atras cerca lejos dentro fuera junto menos mientras entonces pues porque aunque sino tampoco ademas quiza quizas todavia aun tambien siempre nunca jamas apenas casi realmente basicamente solamente simplemente actualmente normalmente generalmente practicamente finalmente incluso segun hasta desde hacia mediante durante contra tras ante excepto salvo dado bueno buena buenos buenas malo mala malos malas claro verdad obvio posible necesario importante diferente siguiente anterior actual otro otra otros otras saber tener poder hacer decir querer poner salir venir dar ver ir oir caer traer creer leer parecer conocer saber sentir pensar vivir morir dormir pedir seguir servir llamar pasar hablar dejar contar tocar perder encontrar esperar mirar resultar tratar punto puntos cosa cosas lado cosas parte partes veces momento manera forma lugar resuelve resuelven ocurre ocurren sucede suceden existe existen muestra muestran funciona funcionan aparece aparecen permite permiten necesita necesitan intenta intentan mueve mueven abre abren cierra cierran cambia cambian agrega agregan quita quitan usa usan utiliza utilizan recibe reciben incluye incluyen muestra muestran genera generan requiere requieren devuelve devuelven pueda puedan puedo puedes puede pueden podria podrias podrian tenga tengan haga hagan vaya vayan sepa sepan diga digan quiera quieran haya hayan sea sean este esten fuera fuese pudiera pudieron tuviera tuvieron hiciera hicieron fuera fueron diera dieron dijera dijeron color negro blanco rojo azul verde amarillo gris rosa naranja morado oscuro claro image images imagen imagenes picture pictures photo photos foto fotos screenshot screenshots captura capturas png jpg jpeg gif svg tenemos herramienta herramientas recordando contenga informacion especifico especifica specifico remember remembering information specific specifically tool tools "
 ES_MARKERS=" el la los las un una de del en con por para al es son que como pero ya se este esta su sus mi tu y o ni nos "
 EN_MARKERS=" the is are was were have has had do does did will would could should can with from this that these those and but or if not just "
 ACTION_VERBS=" fix add update create remove delete change modify implement build write refactor debug check review test help configure install move rename solve resolve handle show hide enable disable migrate deploy run start stop set get put send fetch load save read find replace convert merge split connect setup init initialize open close look adapt adjust improve enhance optimize polish upgrade downgrade revert restore backup export import sync validate verify authenticate authorize compress minify bundle transpile compile arreglar agregar crear actualizar eliminar cambiar modificar implementar construir configurar habilitar mover copiar revisar probar correr instalar reemplazar convertir migrar optimizar depurar generar exportar importar enviar cargar guardar limpiar iniciar detener aplicar buscar filtrar ordenar seleccionar mostrar ocultar abrir cerrar subir bajar descargar publicar compartir conectar desconectar verificar validar autenticar registrar ingresar acceder navegar redirigir continuar pasar cambiar poner sacar meter llevar traer mandar llamar quedar seguir volver salir entrar lograr obtener mantener preparar terminar completar comenzar empezar ayudar corregir solucionar reparar ajustar mejorar analizar investigar explorar explicar entender comprender revisar comprobar asegurar necesitar intentar "
@@ -92,6 +92,55 @@ detect_language() {
   (( es >= 2 && es > en )) && echo "es" || echo "en"
 }
 
+extract_intent_sentence() {
+  local text="$1"
+  [[ -z "$text" ]] && return
+  # Normalize text for splitting: replace conjunctive boundaries with pipe
+  local normalized
+  normalized=$(echo "$text" | sed -E \
+    -e 's/[.!?;] /|/g' \
+    -e 's/, *([Aa]si que|[Aa]sí que|[Ss]o |[Tt]herefore|[Hh]ence|[Pp]or eso|[Pp]or lo tanto|[Dd]e modo que)/|\1/g')
+  # Split into sentences
+  local IFS='|'
+  local -a sentences=()
+  for s in $normalized; do
+    s="${s## }"; s="${s%% }"
+    [[ -n "$s" ]] && sentences+=("$s")
+  done
+  # Intent markers ordered most-specific first (accent-stripped for matching)
+  local -a intent_patterns=(
+    "estaria bien" "seria bueno" "la idea es" "i think we should"
+    "it would be good to" "the idea is to" "we need to" "we should"
+    "maybe we could" "pienso que" "creo que" "podriamos" "deberiamos"
+    "i suggest" "i propose" "propongo" "sugiero" "how about"
+    "tal vez" "perhaps" "quizas"
+  )
+  for s in "${sentences[@]}"; do
+    local s_lower
+    s_lower=$(strip_accents "$(echo "$s" | tr '[:upper:]' '[:lower:]')")
+    # Find the most specific match (shortest remaining text = latest match position)
+    local best_after="" best_len=999999
+    for marker in "${intent_patterns[@]}"; do
+      [[ "$s_lower" != *"$marker"* ]] && continue
+      local after
+      after=$(echo "$s" | perl -pe "use Unicode::Normalize; my \$m='$marker'; s/.*?(?i:\Q\$m\E)//; s/^\s+//" 2>/dev/null) || true
+      if [[ -z "$after" ]]; then
+        local s_stripped
+        s_stripped=$(strip_accents "$s")
+        after=$(echo "$s_stripped" | sed -E "s/.*$marker//I; s/^ +//") || true
+      fi
+      if [[ -n "$after" ]]; then
+        local alen=${#after}
+        if [[ $alen -lt $best_len ]]; then
+          best_after="$after"
+          best_len=$alen
+        fi
+      fi
+    done
+    [[ -n "$best_after" ]] && echo "$best_after" && return
+  done
+}
+
 clean_text() {
   local text="$1"
   text=$(echo "$text" | perl -0pe 's/<(\w[\w-]*)(?:\s[^>]*)?>[\s\S]*?<\/\1>//g' 2>/dev/null || echo "$text")
@@ -116,7 +165,28 @@ clean_text() {
     text="${text## }"; text="${text%% }"
     [[ "$text" != "$before" ]] && again=true
   done
-  text=$(echo "$text" | sed -E 's/[.!?;]( |$).*//')
+  # For long messages (3+ sentences, 30+ words), use last meaningful sentence
+  local sentence_count word_count
+  sentence_count=$(echo "$text" | grep -oE '[.!?;]( |$)' | wc -l | tr -d ' ')
+  word_count=$(echo "$text" | wc -w | tr -d ' ')
+  if [[ "$sentence_count" -ge 3 && "$word_count" -ge 30 ]]; then
+    # Split on sentence boundaries, find last sentence with 4+ words
+    local last_good=""
+    local remaining="$text"
+    while [[ -n "$remaining" ]]; do
+      local chunk
+      chunk=$(echo "$remaining" | sed -E 's/[.!?;]( |$).*//')
+      remaining=$(echo "$remaining" | sed -E "s/^[^.!?;]*[.!?;]( |$)//")
+      [[ "$remaining" == "$text" ]] && remaining=""
+      chunk="${chunk## }"; chunk="${chunk%% }"
+      local cwords
+      cwords=$(echo "$chunk" | wc -w | tr -d ' ')
+      [[ "$cwords" -ge 4 ]] && last_good="$chunk"
+    done
+    [[ -n "$last_good" ]] && text="$last_good" || text=$(echo "$text" | sed -E 's/[.!?;]( |$).*//')
+  else
+    text=$(echo "$text" | sed -E 's/[.!?;]( |$).*//')
+  fi
   text="${text## }"; text="${text%% }"
   echo "$text"
 }
@@ -127,6 +197,11 @@ _clean_token() {
 
 extract_topic() {
   local text="$1"; [[ -z "$text" ]] && return
+  local intent_text
+  intent_text=$(extract_intent_sentence "$text") || intent_text=""
+  if [[ -n "$intent_text" ]]; then
+    text="$intent_text"
+  fi
   local cleaned; cleaned=$(clean_text "$text"); [[ -z "$cleaned" ]] && return
   local -a compound_words=() other_words=() verb_words=()
   local seen=" "

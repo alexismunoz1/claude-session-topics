@@ -345,3 +345,54 @@ setup() {
   [[ "$result" == *"Profile"* ]]
   [[ "$result" == *"Width"* ]] || [[ "$result" == *"900px"* ]]
 }
+
+# ── Intent extraction: long conversational messages ──
+
+@test "intent: Spanish PostHog long message extracts intent not context" {
+  local tmpfile="$BATS_TEST_TMPDIR/intent-posthog.jsonl"
+  echo '{"role": "user", "content": "Actualmente tenemos una integración con posthog en un plugin Y cada vez que quiero hacer cosas con esta herramienta, tengo que estar recordando el Claude Code como utilizar el plugin porque si no se pone a buscar en los MCPs. Así que no sé, quizás pienso que estaría bien un agente específico para posthog o quizás una skill o un slash command que contenga esta información."}' > "$tmpfile"
+  result=$(bash "$EXTRACT_SCRIPT" "$tmpfile")
+  # Should contain Posthog + intent-related words, NOT narrative words like Tenemos/Integración
+  [[ "$result" == *"Posthog"* ]] || [[ "$result" == *"posthog"* ]]
+  [[ "$result" != *"Tenemos"* ]]
+  [[ "$result" != *"Integracion"* ]] && [[ "$result" != *"Integración"* ]]
+}
+
+@test "intent: English 'I think we should' extracts intent" {
+  local tmpfile="$BATS_TEST_TMPDIR/intent-en-should.jsonl"
+  echo '{"role": "user", "content": "We have been dealing with slow API responses for weeks now. The team has tried various caching strategies but nothing sticks. I think we should add Redis cache to the payment endpoint to fix the latency issues."}' > "$tmpfile"
+  result=$(bash "$EXTRACT_SCRIPT" "$tmpfile")
+  # Should extract from "add Redis cache..." not from "slow API responses"
+  [[ "$result" == *"Redis"* ]] || [[ "$result" == *"Cache"* ]] || [[ "$result" == *"Payment"* ]]
+}
+
+@test "intent: Spanish seria bueno extracts intent" {
+  local tmpfile="$BATS_TEST_TMPDIR/intent-es-seria.jsonl"
+  echo '{"role": "user", "content": "El sistema de login está funcionando pero tiene problemas de rendimiento. Sería bueno agregar un cache de sesiones con Redis para mejorar los tiempos de respuesta."}' > "$tmpfile"
+  result=$(bash "$EXTRACT_SCRIPT" "$tmpfile")
+  [[ "$result" == *"Cache"* ]] || [[ "$result" == *"Sesion"* ]] || [[ "$result" == *"Redis"* ]]
+  [[ "$result" != *"Login"* ]] || [[ "$result" == *"Cache"* ]]
+}
+
+@test "intent: short direct message unchanged by intent extraction" {
+  local tmpfile="$BATS_TEST_TMPDIR/intent-short.jsonl"
+  echo '{"role": "user", "content": "Fix the login button"}' > "$tmpfile"
+  result=$(bash "$EXTRACT_SCRIPT" "$tmpfile")
+  [[ "$result" == *"Login"* ]]
+  [[ "$result" == *"Button"* ]]
+}
+
+@test "intent: English 'we need to' in multi-sentence" {
+  local tmpfile="$BATS_TEST_TMPDIR/intent-en-need.jsonl"
+  echo '{"role": "user", "content": "The current auth middleware is storing tokens insecurely. Legal flagged it last week. We need to migrate the token storage to encrypted cookies with proper rotation."}' > "$tmpfile"
+  result=$(bash "$EXTRACT_SCRIPT" "$tmpfile")
+  [[ "$result" == *"Token"* ]] || [[ "$result" == *"Cookie"* ]] || [[ "$result" == *"Storage"* ]]
+}
+
+@test "intent: long message fallback uses last sentence when no intent marker" {
+  local tmpfile="$BATS_TEST_TMPDIR/intent-fallback.jsonl"
+  echo '{"role": "user", "content": "There are many problems with the current system. The users have been complaining about it for months. Nobody has had time to look into it properly. The Docker Compose configuration needs a complete overhaul for production deployment."}' > "$tmpfile"
+  result=$(bash "$EXTRACT_SCRIPT" "$tmpfile")
+  # Should prefer last sentence with Docker/Compose, not first sentence about "problems"
+  [[ "$result" == *"Docker"* ]] || [[ "$result" == *"Compose"* ]] || [[ "$result" == *"Production"* ]]
+}
