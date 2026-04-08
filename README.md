@@ -56,8 +56,8 @@ npx @alexismunozdev/claude-session-topics --no-voice
 
 ## What it does
 
-- After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using lightweight keyword extraction (no model tokens spent)
-- The auto-topic skill refines the topic when the conversation shifts
+- After Claude's first response, a Stop hook reads the session's `custom-title` from Claude Code's transcript and displays it in Title Case
+- The auto-topic skill sets the topic early (before the custom-title is available) and refines it when the conversation shifts
 - Shows the topic in the Claude Code statusline (`◆ Topic`)
 - Change the topic anytime with `/set-topic`
 - Composes with existing statusline plugins (doesn't overwrite)
@@ -65,7 +65,7 @@ npx @alexismunozdev/claude-session-topics --no-voice
 ## What the installer configures
 
 1. Copies the statusline script to `~/.claude/session-topics/`
-2. Installs the Stop hook (`auto-topic-hook.sh`) that sets the initial topic
+2. Installs the Stop hook (`auto-topic-hook.sh`) that reads the topic from Claude Code's internal `custom-title`
 3. Configures `statusLine` in `~/.claude/settings.json`
 4. Adds bash permission for the script
 5. Installs `auto-topic` and `set-topic` skills to `~/.claude/skills/`
@@ -103,13 +103,13 @@ This package installs two skills to `~/.claude/skills/`:
 - **auto-topic** — loaded on every conversation (needed to track topic changes as you work). This is the core skill that keeps the statusline topic up to date.
 - **set-topic** — a minimal stub (~15 lines) that enables the `/set-topic` command. It delegates all logic to auto-topic, so its token footprint is negligible.
 
-The initial topic extraction runs entirely via a Stop hook using `jq` + `awk` — no model tokens spent. Only the auto-topic skill uses model tokens, and only when it detects that the conversation has shifted to a different subject.
+The initial topic is read from Claude Code's internal `custom-title` via a Stop hook using `jq` + `awk` — no model tokens spent. The auto-topic skill uses model tokens to set the topic early (before the custom-title appears in the transcript) and to update it when the conversation shifts to a different subject.
 
 ## Usage
 
 ### Auto-topic (automatic)
 
-After Claude's first response, a Stop hook extracts a 2-5 word topic from your first message using lightweight keyword extraction (no model tokens spent). The auto-topic skill then monitors the conversation and updates the topic when you shift to a different subject.
+After Claude's first response, a Stop hook reads Claude Code's internal `custom-title` from the transcript and converts it to Title Case. The auto-topic skill sets the topic early (before the custom-title is available) and updates it when you shift to a different subject.
 
 ### /set-topic (manual)
 
@@ -127,16 +127,16 @@ Session starts
     |
 Claude sends first response
     |
-Stop hook (auto-topic-hook.sh) extracts topic from first user message
+Stop hook (auto-topic-hook.sh) reads custom-title from transcript
     |
-Writes topic to ~/.claude/session-topics/${SESSION_ID}
+Converts kebab-case to Title Case → writes to ~/.claude/session-topics/${SESSION_ID}
     |
-auto-topic skill monitors for conversation shifts and updates topic
+auto-topic skill covers early turns and monitors for conversation shifts
     |
 Statusline script reads the topic file → displays: ◆ Topic
 ```
 
-The Stop hook runs after each model response and uses lightweight keyword extraction (jq + awk) to extract the initial topic from the transcript. No model tokens are spent — the extraction is purely heuristic. On subsequent messages, the auto-topic skill handles topic updates when the conversation shifts. The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
+The Stop hook runs after each model response and reads Claude Code's internal `custom-title` from the transcript JSONL using `jq` + `awk`. No model tokens are spent — the reading is purely mechanical. The auto-topic skill sets the topic early (before the custom-title appears) and handles topic updates when the conversation shifts. The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
 
 ## Troubleshooting
 
