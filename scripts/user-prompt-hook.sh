@@ -141,7 +141,9 @@ extract_heuristic() {
 
   if [ "${#picked[@]}" -eq 0 ]; then
     # Fallback: first 3 raw words
-    picked=($(printf '%s' "$stripped" | awk '{for(i=1;i<=3 && i<=NF;i++) print $i}'))
+    while IFS= read -r tok; do
+      [ -n "$tok" ] && picked+=("$tok")
+    done < <(printf '%s' "$stripped" | awk '{for(i=1;i<=3 && i<=NF;i++) print $i}')
   fi
 
   # Title-case: capitalize first letter of each token; keep ALL-CAPS techie tokens intact
@@ -182,9 +184,8 @@ fi
 
 # ── Async refinement via claude -p
 refine_topic() {
-  local sid="$1"
-  local prompt_text="$2"
-  local transcript="$3"
+  local prompt_text="$1"
+  local transcript="$2"
 
   # Rate limit: bail if last refine < 15s ago
   if [ -f "$REFINE_LAST" ]; then
@@ -244,7 +245,7 @@ refine_topic() {
 
 if [ "$SHOULD_REFINE" = "1" ]; then
   (
-    refine_topic "$SESSION_ID" "$PROMPT" "$TRANSCRIPT_PATH" || true
+    refine_topic "$PROMPT" "$TRANSCRIPT_PATH" || true
   ) </dev/null >/dev/null 2>&1 &
   disown 2>/dev/null || true
 fi
