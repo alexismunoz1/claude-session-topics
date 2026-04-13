@@ -151,12 +151,12 @@ echo ""
 echo -e "${BLUE}Installation Files:${NC}"
 check_dir "$HOME/.claude/session-topics" "Topics directory"
 check_file "$HOME/.claude/session-topics/statusline.sh" "Statusline script"
-check_file "$HOME/.claude/session-topics/auto-topic-hook.sh" "Auto-topic hook"
+check_file "$HOME/.claude/session-topics/auto-topic-hook.sh" "Stop hook (auto-topic-hook.sh)"
+check_file "$HOME/.claude/session-topics/user-prompt-hook.sh" "UserPromptSubmit hook (user-prompt-hook.sh)"
 echo ""
 
 # Skills
 echo -e "${BLUE}Skills:${NC}"
-check_dir "$HOME/.claude/skills/auto-topic" "auto-topic skill"
 check_dir "$HOME/.claude/skills/set-topic" "set-topic skill"
 echo ""
 
