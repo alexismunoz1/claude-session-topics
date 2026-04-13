@@ -34,6 +34,8 @@ const TOPICS_DIR = path.join(HOME, '.claude', 'session-topics');
 const DEST_STATUSLINE = path.join(TOPICS_DIR, 'statusline.sh');
 const DEST_WRAPPER = path.join(TOPICS_DIR, 'wrapper-statusline.sh');
 const DEST_HOOK_SCRIPT = path.join(TOPICS_DIR, 'auto-topic-hook.sh');
+const DEST_PROMPT_HOOK = path.join(TOPICS_DIR, 'user-prompt-hook.sh');
+const DEST_LIB_DIR = path.join(TOPICS_DIR, 'lib');
 const ORIG_CMD_FILE = path.join(TOPICS_DIR, '.original-statusline-cmd');
 const COLOR_CONFIG = path.join(TOPICS_DIR, '.color-config');
 const DEST_VOICE_NOTIFY = path.join(TOPICS_DIR, 'voice-notify.sh');
@@ -45,6 +47,8 @@ const SETTINGS_FILE = path.join(HOME, '.claude', 'settings.json');
 
 const SRC_STATUSLINE = path.join(__dirname, '..', 'scripts', 'statusline.sh');
 const SRC_HOOK_SCRIPT = path.join(__dirname, '..', 'scripts', 'auto-topic-hook.sh');
+const SRC_PROMPT_HOOK = path.join(__dirname, '..', 'scripts', 'user-prompt-hook.sh');
+const SRC_LIB_DIR = path.join(__dirname, '..', 'scripts', 'lib');
 const SRC_FIND_PID = path.join(__dirname, '..', 'scripts', 'find-claude-pid.sh');
 const SRC_VOICE_NOTIFY = path.join(__dirname, '..', 'scripts', 'voice-notify.sh');
 const SRC_SKILLS = path.join(__dirname, '..', 'skills');
@@ -54,6 +58,7 @@ const SRC_SKILLS = path.join(__dirname, '..', 'skills');
 const STATUSLINE_CMD = `bash "/Users/mac/.claude/session-topics/statusline.sh"`;
 const WRAPPER_CMD = `bash "/Users/mac/.claude/session-topics/wrapper-statusline.sh"`;
 const STOP_HOOK_CMD = `bash "/Users/mac/.claude/session-topics/auto-topic-hook.sh" || true`;
+const PROMPT_HOOK_CMD = `bash "/Users/mac/.claude/session-topics/user-prompt-hook.sh" || true`;
 
 // ─── Permission rule ─────────────────────────────────────────────────────────
 
@@ -268,6 +273,20 @@ function install(color, voice, voiceLang, noVoice) {
     fs.chmodSync(DEST_HOOK_SCRIPT, 0o755);
     ok('Copied auto-topic-hook.sh');
 
+    // ── Step 4a: Copy user-prompt-hook + lib ────────────────────────────
+    if (!fs.existsSync(SRC_PROMPT_HOOK)) {
+        err(`Source prompt hook not found: ${SRC_PROMPT_HOOK}`);
+        process.exit(1);
+    }
+    fs.copyFileSync(SRC_PROMPT_HOOK, DEST_PROMPT_HOOK);
+    fs.chmodSync(DEST_PROMPT_HOOK, 0o755);
+    ok('Copied user-prompt-hook.sh');
+
+    if (fs.existsSync(SRC_LIB_DIR)) {
+        copyDirRecursive(SRC_LIB_DIR, DEST_LIB_DIR);
+        ok('Copied scripts/lib/');
+    }
+
     // ── Step 4b: Copy find-claude-pid.sh (belt-and-suspenders) ──────────
 
     const DEST_FIND_PID = path.join(TOPICS_DIR, 'find-claude-pid.sh');
@@ -390,9 +409,44 @@ function install(color, voice, voiceLang, noVoice) {
         ok('Registered Stop hook for auto-topic detection');
     }
 
+    // ── Step 7b: Register UserPromptSubmit hook ─────────────────────────
+
+    if (!Array.isArray(settings.hooks.UserPromptSubmit)) {
+        settings.hooks.UserPromptSubmit = [];
+    }
+    let promptHookFound = false;
+    for (const entry of settings.hooks.UserPromptSubmit) {
+        if (entry && Array.isArray(entry.hooks)) {
+            for (const h of entry.hooks) {
+                if (h && typeof h.command === 'string' && h.command.includes('session-topics')) {
+                    h.command = PROMPT_HOOK_CMD;
+                    promptHookFound = true;
+                }
+            }
+        }
+    }
+    if (!promptHookFound) {
+        settings.hooks.UserPromptSubmit.push({
+            hooks: [{ type: 'command', command: PROMPT_HOOK_CMD }],
+        });
+    }
+    writeSettings(settings);
+    if (promptHookFound) {
+        ok('Updated UserPromptSubmit hook for live topic generation');
+    } else {
+        ok('Registered UserPromptSubmit hook for live topic generation');
+    }
+
+    // ── Step 7c: Remove obsolete auto-topic skill from previous installs ─
+    const obsoleteAutoTopic = path.join(SKILLS_DIR, 'auto-topic');
+    if (fs.existsSync(obsoleteAutoTopic)) {
+        fs.rmSync(obsoleteAutoTopic, { recursive: true, force: true });
+        info('Removed obsolete auto-topic skill (replaced by UserPromptSubmit hook)');
+    }
+
     // ── Step 8: Copy skills ──────────────────────────────────────────────
 
-    const skillsToCopy = ['auto-topic', 'set-topic'];
+    const skillsToCopy = ['set-topic'];
     for (const skill of skillsToCopy) {
         const srcSkill = path.join(SRC_SKILLS, skill);
         const destSkill = path.join(SKILLS_DIR, skill);
@@ -508,12 +562,16 @@ function uninstall() {
     // ── Step 2: Delete scripts ───────────────────────────────────────────
 
     const DEST_FIND_PID = path.join(TOPICS_DIR, 'find-claude-pid.sh');
-    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, DEST_FIND_PID, ORIG_CMD_FILE, DEST_VOICE_NOTIFY, VOICE_CONFIG];
+    const filesToDelete = [DEST_STATUSLINE, DEST_WRAPPER, DEST_HOOK_SCRIPT, DEST_PROMPT_HOOK, DEST_FIND_PID, ORIG_CMD_FILE, DEST_VOICE_NOTIFY, VOICE_CONFIG];
     for (const file of filesToDelete) {
         if (fs.existsSync(file)) {
             fs.unlinkSync(file);
             ok(`Deleted ${path.basename(file)}`);
         }
+    }
+    if (fs.existsSync(DEST_LIB_DIR)) {
+        fs.rmSync(DEST_LIB_DIR, { recursive: true, force: true });
+        ok('Deleted lib/');
     }
 
     // ── Step 3: Remove permission ────────────────────────────────────────
@@ -534,32 +592,31 @@ function uninstall() {
         }
     }
 
-    // ── Step 4: Remove Stop hook ───────────────────────────────────────
+    // ── Step 4: Remove hooks (Stop + UserPromptSubmit) ──────────────────
 
-    if (
-        settings.hooks &&
-        typeof settings.hooks === 'object' &&
-        Array.isArray(settings.hooks.Stop)
-    ) {
-        const beforeLen = settings.hooks.Stop.length;
-        settings.hooks.Stop = settings.hooks.Stop.filter((entry) => {
-            if (entry && Array.isArray(entry.hooks)) {
-                return !entry.hooks.some(
-                    (h) => h && typeof h.command === 'string' && h.command.includes('session-topics'),
-                );
+    if (settings.hooks && typeof settings.hooks === 'object') {
+        for (const eventName of ['Stop', 'UserPromptSubmit']) {
+            if (!Array.isArray(settings.hooks[eventName])) continue;
+            const beforeLen = settings.hooks[eventName].length;
+            settings.hooks[eventName] = settings.hooks[eventName].filter((entry) => {
+                if (entry && Array.isArray(entry.hooks)) {
+                    return !entry.hooks.some(
+                        (h) => h && typeof h.command === 'string' && h.command.includes('session-topics'),
+                    );
+                }
+                return true;
+            });
+            if (settings.hooks[eventName].length < beforeLen) {
+                if (settings.hooks[eventName].length === 0) {
+                    delete settings.hooks[eventName];
+                }
+                ok(`Removed ${eventName} hook`);
             }
-            return true;
-        });
-        if (settings.hooks.Stop.length < beforeLen) {
-            if (settings.hooks.Stop.length === 0) {
-                delete settings.hooks.Stop;
-            }
-            if (Object.keys(settings.hooks).length === 0) {
-                delete settings.hooks;
-            }
-            writeSettings(settings);
-            ok('Removed Stop hook');
         }
+        if (Object.keys(settings.hooks).length === 0) {
+            delete settings.hooks;
+        }
+        writeSettings(settings);
     }
 
     // ── Step 5: Delete skills ────────────────────────────────────────────

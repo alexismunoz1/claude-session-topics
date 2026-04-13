@@ -59,9 +59,10 @@ load helper
   [ ! -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
 }
 
-@test "test_hook_preserves_existing_topic" {
-  # If topic already exists (set by skill), hook should not overwrite it
-  echo "Skill Generated Topic" > "$TOPICS_DIR/$TEST_SESSION_ID"
+@test "test_hook_upgrades_heuristic_to_custom_title" {
+  # Heuristic topic exists; Stop hook should upgrade it from custom-title
+  echo "Heuristic Topic" > "$TOPICS_DIR/$TEST_SESSION_ID"
+  printf 'heuristic' > "$TOPICS_DIR/.source-$TEST_SESSION_ID"
 
   local tmpfile="$BATS_TEST_TMPDIR/transcript.jsonl"
   echo '{"type": "custom-title", "customTitle": "different-hook-title", "sessionId": "'$TEST_SESSION_ID'"}' > "$tmpfile"
@@ -71,9 +72,72 @@ load helper
 
   [ "$status" -eq 0 ]
 
-  local topic_content
+  local topic_content source_content
   topic_content=$(cat "$TOPICS_DIR/$TEST_SESSION_ID")
-  [[ "$topic_content" == "Skill Generated Topic" ]]
+  source_content=$(cat "$TOPICS_DIR/.source-$TEST_SESSION_ID")
+  [[ "$topic_content" == "Different Hook Title" ]]
+  [[ "$source_content" == "custom-title" ]]
+
+  rm -f "$TOPICS_DIR/.source-$TEST_SESSION_ID"
+}
+
+@test "test_hook_preserves_manual_topic" {
+  # Manual marker present → Stop hook must not overwrite
+  echo "My Manual Topic" > "$TOPICS_DIR/$TEST_SESSION_ID"
+  touch "$TOPICS_DIR/.manual-set-$TEST_SESSION_ID"
+  printf 'manual' > "$TOPICS_DIR/.source-$TEST_SESSION_ID"
+
+  local tmpfile="$BATS_TEST_TMPDIR/transcript.jsonl"
+  echo '{"type": "custom-title", "customTitle": "should-not-win", "sessionId": "'$TEST_SESSION_ID'"}' > "$tmpfile"
+
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "'$tmpfile'"}'
+  run bash "$PROJECT_ROOT/scripts/auto-topic-hook.sh" <<< "$hook_input"
+
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$TOPICS_DIR/$TEST_SESSION_ID")" == "My Manual Topic" ]]
+
+  rm -f "$TOPICS_DIR/.manual-set-$TEST_SESSION_ID" "$TOPICS_DIR/.source-$TEST_SESSION_ID"
+}
+
+@test "test_user_prompt_hook_writes_heuristic_topic" {
+  # Use SKIP=1 to avoid spawning claude -p
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "/nonexistent", "prompt": "Fix the NeonDB auth session bug"}'
+  CLAUDE_SESSION_TOPICS_SKIP=0 run bash "$PROJECT_ROOT/scripts/user-prompt-hook.sh" <<< "$hook_input"
+
+  [ "$status" -eq 0 ]
+  [ -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
+  [ -f "$TOPICS_DIR/.source-$TEST_SESSION_ID" ]
+
+  local source_content topic_content
+  source_content=$(cat "$TOPICS_DIR/.source-$TEST_SESSION_ID")
+  topic_content=$(cat "$TOPICS_DIR/$TEST_SESSION_ID")
+  [[ "$source_content" == "heuristic" ]]
+  # Heuristic should drop "Fix" + "the" stop-words, keep tech tokens
+  [[ "$topic_content" == *"NeonDB"* ]] || [[ "$topic_content" == *"Auth"* ]]
+
+  rm -f "$TOPICS_DIR/.source-$TEST_SESSION_ID" "$TOPICS_DIR/.turns-$TEST_SESSION_ID" "$TOPICS_DIR/.refine-lock-$TEST_SESSION_ID"
+}
+
+@test "test_user_prompt_hook_respects_manual_marker" {
+  echo "Locked Topic" > "$TOPICS_DIR/$TEST_SESSION_ID"
+  touch "$TOPICS_DIR/.manual-set-$TEST_SESSION_ID"
+  printf 'manual' > "$TOPICS_DIR/.source-$TEST_SESSION_ID"
+
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "", "prompt": "Some new direction completely different"}'
+  run bash "$PROJECT_ROOT/scripts/user-prompt-hook.sh" <<< "$hook_input"
+
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$TOPICS_DIR/$TEST_SESSION_ID")" == "Locked Topic" ]]
+
+  rm -f "$TOPICS_DIR/.manual-set-$TEST_SESSION_ID" "$TOPICS_DIR/.source-$TEST_SESSION_ID" "$TOPICS_DIR/.turns-$TEST_SESSION_ID"
+}
+
+@test "test_user_prompt_hook_skip_env" {
+  local hook_input='{"session_id": "'$TEST_SESSION_ID'", "transcript_path": "", "prompt": "anything"}'
+  CLAUDE_SESSION_TOPICS_SKIP=1 run bash "$PROJECT_ROOT/scripts/user-prompt-hook.sh" <<< "$hook_input"
+
+  [ "$status" -eq 0 ]
+  [ ! -f "$TOPICS_DIR/$TEST_SESSION_ID" ]
 }
 
 @test "test_hook_truncates_long_titles" {

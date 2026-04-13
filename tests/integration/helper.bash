@@ -21,6 +21,12 @@ teardown() {
   # Clean up test files
   rm -f "$TOPICS_DIR/${TEST_SESSION_ID}" 2>/dev/null || true
   rm -f "$TOPICS_DIR/.active-session-"* 2>/dev/null || true
+  rm -f "$TOPICS_DIR/.source-${TEST_SESSION_ID}" 2>/dev/null || true
+  rm -f "$TOPICS_DIR/.manual-set-${TEST_SESSION_ID}" 2>/dev/null || true
+  rm -f "$TOPICS_DIR/.turns-${TEST_SESSION_ID}" 2>/dev/null || true
+  rm -f "$TOPICS_DIR/.refine-lock-${TEST_SESSION_ID}" 2>/dev/null || true
+  rm -f "$TOPICS_DIR/.refine-last-${TEST_SESSION_ID}" 2>/dev/null || true
+  rm -f "$TOPICS_DIR/.voice-announced-${TEST_SESSION_ID}" 2>/dev/null || true
   rm -f "$TOPICS_DIR/.color-config" 2>/dev/null || true
 }
 

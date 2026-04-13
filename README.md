@@ -56,21 +56,24 @@ npx @alexismunozdev/claude-session-topics --no-voice
 
 ## What it does
 
-- After Claude's first response, a Stop hook reads the session's `custom-title` from Claude Code's transcript and displays it in Title Case
-- The auto-topic skill sets the topic early (before the custom-title is available) and refines it when the conversation shifts
+- A `UserPromptSubmit` hook runs on every user message: it writes a fast bash heuristic immediately, then refines the topic asynchronously via `claude -p` headless
+- Once Claude Code generates its internal `custom-title`, the Stop hook upgrades the topic to that higher-quality version
+- `/set-topic` always wins — manual topics are protected for the rest of the session
 - Shows the topic in the Claude Code statusline (`◆ Topic`)
-- Change the topic anytime with `/set-topic`
 - Composes with existing statusline plugins (doesn't overwrite)
+
+Topic source precedence: `manual > custom-title > refined > heuristic > empty`.
 
 ## What the installer configures
 
 1. Copies the statusline script to `~/.claude/session-topics/`
-2. Installs the Stop hook (`auto-topic-hook.sh`) that reads the topic from Claude Code's internal `custom-title`
-3. Configures `statusLine` in `~/.claude/settings.json`
-4. Adds bash permission for the script
-5. Installs `auto-topic` and `set-topic` skills to `~/.claude/skills/`
-6. If you already have a statusline, creates a wrapper that shows both
-7. Copies `voice-notify.sh` for optional voice alerts
+2. Installs the `UserPromptSubmit` hook (`user-prompt-hook.sh`) for live topic generation
+3. Installs the `Stop` hook (`auto-topic-hook.sh`) that upgrades the topic from Claude Code's internal `custom-title`
+4. Configures `statusLine` in `~/.claude/settings.json`
+5. Adds bash permission for the scripts
+6. Installs the `set-topic` skill to `~/.claude/skills/`
+7. If you already have a statusline, creates a wrapper that shows both
+8. Copies `voice-notify.sh` for optional voice alerts
 
 ## Requirements
 
@@ -98,18 +101,19 @@ The default topic color is bold magenta. Three ways to change it:
 
 ## Token usage
 
-This package installs two skills to `~/.claude/skills/`:
+This package installs **one skill** (`set-topic`) and **two hooks** (`UserPromptSubmit`, `Stop`).
 
-- **auto-topic** — loaded on every conversation (needed to track topic changes as you work). This is the core skill that keeps the statusline topic up to date.
-- **set-topic** — a minimal stub (~15 lines) that enables the `/set-topic` command. It delegates all logic to auto-topic, so its token footprint is negligible.
+- The `UserPromptSubmit` hook writes a topic synchronously via a bash heuristic (zero model tokens) and then spawns a background `claude -p --model haiku` call to refine it (one short headless call per user message, rate-limited to once every 15 seconds and only re-run every 3 turns when the topic is already `refined`).
+- The `Stop` hook reads Claude Code's internal `custom-title` from the transcript JSONL — pure `jq` + `awk`, no model tokens.
+- The `set-topic` skill is a minimal stub used only when you invoke `/set-topic` explicitly.
 
-The initial topic is read from Claude Code's internal `custom-title` via a Stop hook using `jq` + `awk` — no model tokens spent. The auto-topic skill uses model tokens to set the topic early (before the custom-title appears in the transcript) and to update it when the conversation shifts to a different subject.
+There is no longer an `auto-topic` skill — its job is now done deterministically by the `UserPromptSubmit` hook, removing the dependency on the model deciding to invoke a skill.
 
 ## Usage
 
 ### Auto-topic (automatic)
 
-After Claude's first response, a Stop hook reads Claude Code's internal `custom-title` from the transcript and converts it to Title Case. The auto-topic skill sets the topic early (before the custom-title is available) and updates it when you shift to a different subject.
+On every user message, the `UserPromptSubmit` hook writes a heuristic topic instantly (visible in <200 ms) and then refines it in the background via `claude -p`. After Claude Code generates an internal `custom-title` (typically a few turns in, or after a plan mode), the `Stop` hook upgrades the topic to that higher-quality version.
 
 ### /set-topic (manual)
 
@@ -123,20 +127,21 @@ Change the topic at any time:
 ## How it works
 
 ```
-Session starts
+User submits a prompt
     |
-Claude sends first response
+UserPromptSubmit hook (user-prompt-hook.sh)
+    ├─ writes a bash heuristic topic synchronously (≤200 ms)
+    └─ forks claude -p --model haiku to refine the topic in background
     |
-Stop hook (auto-topic-hook.sh) reads custom-title from transcript
+Claude responds → Stop hook (auto-topic-hook.sh)
+    └─ if custom-title is present in transcript, upgrades the topic
     |
-Converts kebab-case to Title Case → writes to ~/.claude/session-topics/${SESSION_ID}
-    |
-auto-topic skill covers early turns and monitors for conversation shifts
-    |
-Statusline script reads the topic file → displays: ◆ Topic
+Statusline reads ~/.claude/session-topics/${SESSION_ID} → ◆ Topic
 ```
 
-The Stop hook runs after each model response and reads Claude Code's internal `custom-title` from the transcript JSONL using `jq` + `awk`. No model tokens are spent — the reading is purely mechanical. The auto-topic skill sets the topic early (before the custom-title appears) and handles topic updates when the conversation shifts. The statusline script receives the session ID via stdin JSON, reads the corresponding topic file, and renders it with ANSI color codes.
+Source precedence: `manual > custom-title > refined > heuristic > empty`. Each transition is recorded in `~/.claude/session-topics/.source-${SESSION_ID}`.
+
+`/set-topic` writes a `.manual-set-${SESSION_ID}` marker that prevents both hooks from overwriting the topic for the rest of the session.
 
 ## Troubleshooting
 
